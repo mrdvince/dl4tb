@@ -21,7 +21,7 @@ class Config:
     monitor: list
     epochs: int = 10
     save_dir: str = "./checkpoints"
-    log_dir: str = './log_dir'
+    log_dir: str = "./log_dir"
     save_period: int = 1
     verbosity: int = 2
     resume: str = False
