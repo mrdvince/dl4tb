@@ -1,45 +1,17 @@
-from dataclasses import dataclass
-import os
+import shutil
+from datetime import datetime
+from pathlib import Path
+
 import yaml
 
-
-@dataclass(repr=True)
-class Config:
-    name: str
-    device: str
-    arch: str
-    dataloader: str
-    data_dir: str
-    batch_size: int
-    shuffle: bool
-    optimizer: str
-    loss: str
-    metrics: list
-    lr_scheduler: str
-    step_size: int
-    gamma: float
-    weight_decay: float
-    amsgrad: bool
-    monitor: list
-    epochs: int = 10
-    save_dir: str = "./checkpoints"
-    save_period: int = 1
-    verbosity: int = 2
-    resume: str = False
-    lr: float = 0.001
-    validation_split: float = 0.2
-    num_workers: int = 2
-    early_stop: int = 5
-    tensorboard: bool = True
-    wandb: bool = False
-    # wandb_project: str = 'default'
-    # wandb_entity: str = 'default'
+from base.config_model import Config
 
 
 class LoadConfig:
     def __init__(self, config_path):
+        self.config_path = config_path
 
-        with open(config_path, "r") as f:
+        with open(self.config_path, "r") as f:
             self.config = yaml.safe_load(f.read())
 
     def parse_config(self):
@@ -47,6 +19,12 @@ class LoadConfig:
         optimizer = self.config.get("optimizer")
         lr_scheduler = self.config.get("lr_scheduler")
         trainer = self.config.get("trainer")
+        base_save_dir = Path(trainer.get("save_dir"))
+        run_id = datetime.now().strftime(r"%m%d_%H%M%S")
+        save_dir = base_save_dir / "models" / self.config.get("name") / run_id
+        log_dir = base_save_dir / "logs" / self.config.get("name") / run_id
+        save_dir.mkdir(parents=True, exist_ok=True)
+        log_dir.mkdir(parents=True, exist_ok=True)
         config = Config(
             name=self.config.get("name"),
             device=self.config.get("device"),
@@ -66,7 +44,8 @@ class LoadConfig:
             amsgrad=optimizer.get("amsgrad"),
             monitor=trainer.get("monitor"),
             epochs=trainer.get("epochs"),
-            save_dir=trainer.get("save_dir"),
+            save_dir=str(save_dir),
+            log_dir=str(log_dir),
             save_period=trainer.get("save_period"),
             verbosity=trainer.get("verbosity"),
             resume=trainer.get("resume", False),
@@ -76,3 +55,5 @@ class LoadConfig:
             tensorboard=trainer.get("tensorboard"),
             wandb=trainer.get("wandb"),
         )
+        shutil.copy(self.config_path, save_dir / "config.yaml")
+        return config
