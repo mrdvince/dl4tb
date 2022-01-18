@@ -76,10 +76,3 @@ class LoadConfig:
             tensorboard=trainer.get("tensorboard"),
             wandb=trainer.get("wandb"),
         )
-        return config
-
-
-if __name__ == "__main__":
-    lc = LoadConfig(os.path.join("config.yaml"))
-    conf = lc.parse_config()
-    print(conf.wandb)
