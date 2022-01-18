@@ -3,7 +3,7 @@ import os
 from torchvision import datasets, transforms
 
 from base import BaseDataLoader
-from base.base_config import LoadConfig
+from base.parse_config import LoadConfig
 
 
 class DataLoader(BaseDataLoader):
