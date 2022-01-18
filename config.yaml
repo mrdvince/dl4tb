@@ -7,7 +7,7 @@ dataloader:
   type: DataLoader
   data_dir: data/images/
   batch_size: 64
-  shuffle: true
+  shuffle: false
   validation_split: 0.2
   num_workers: 4
 optimizer:
