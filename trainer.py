@@ -1,5 +1,4 @@
 import math
-import numpy as np
 import torch
 from tqdm.auto import tqdm
 
@@ -32,8 +31,9 @@ class Trainer(BaseTrainer):
         self.valid_loader = valid_loader
         self.lr_scheduler = lr_scheduler
         self.log_step = int(math.sqrt(self.config.batch_size))
-        
+
         self.log = dict()
+
         def _train(self, epoch):
             self.model.train()
             pbar = tqdm(self.train_loader, desc="Training")
@@ -46,22 +46,21 @@ class Trainer(BaseTrainer):
                 self.optimizer.step()
 
                 self.log.update(self._log(self.log, target, output, loss))
-                
+
                 if batch_idx % self.log_step == 0:
                     pbar.set_postfix(
-                    {
-                        "Train Epoch": epoch,
-                        "Train Loss": loss.item(),
-                    }
-                )
+                        {
+                            "Train Epoch": epoch,
+                            "Train Loss": loss.item(),
+                        }
+                    )
 
-        
             val_log = self._validate(epoch)
             self.log.update(**{"val_" + k: v for k, v in val_log.items()})
 
             if self.lr_scheduler is not None:
                 self.lr_scheduler.step()
-            
+
             return self.log
 
         def _validate(self, epoch):
@@ -81,8 +80,8 @@ class Trainer(BaseTrainer):
                     )
             return self.log
 
-        def _log(self, log,target, output, loss, valid=False):
-            log.update("loss" ,loss.item())
+        def _log(self, log, target, output, loss, valid=False):
+            log.update("loss", loss.item())
             for met in self.metrics:
                 log.update(met.__name__, met(output, target))
             return log
