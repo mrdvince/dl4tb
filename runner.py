@@ -1,3 +1,32 @@
+import argparse
+import logging
+import os
+from asyncio.log import logger
+from pathlib import Path
+
+import torch
+
+from base.parse_config import LoadConfig
+from data_loaders import DataLoader
+from logger import logger
+from model import criterion
+from model import metrics as met  # avoiding name collison
+from model import model as arch
+from trainer import Trainer
+
+
+def main(config):
+    logger = get_logger("train", config.verbosity)
+    # dataloaders
+    dl = DataLoader(
+        config.data_dir,
+        config.batch_size,
+        config.shuffle,
+        config.validation_split,
+        config.num_workers,
+    )
+    train_loader, valid_loader = dl.train_loader, dl.valid_loader
+    #  device
     if config.device == "cpu":
         device = "cpu"
     elif config.device == "hpu":
@@ -38,6 +67,23 @@
         **scheduler_args, optimizer=optimizer
     )
 
+    trainer = Trainer(
+        model,
+        loss,
+        metrics,
+        optimizer,
+        config,
+        device,
+        train_loader,
+        valid_loader,
+        scheduler,
+    )
+    import inspect
+
+    print(inspect.getmembers(trainer, predicate=inspect.ismethod))
+    trainer.train()
+
+
 def get_logger(name, verbosity):
     log_levels = {0: logging.WARNING, 1: logging.INFO, 2: logging.DEBUG}
     logger = logging.getLogger(name)
@@ -47,3 +93,19 @@ def get_logger(name, verbosity):
     logger.setLevel(log_levels[verbosity])
     return logger
 
+
+if __name__ == "__main__":
+    args = argparse.ArgumentParser(description="Train the model")
+    args.add_argument(
+        "-c", "--config", type=str, default="config.yaml", help="config file"
+    )
+    args = args.parse_args()
+    lc = LoadConfig(os.path.join(args.config))
+    config = lc.parse_config()
+    # setup logger
+    logger.setup_logging(Path(config.log_dir))
+    try:
+        main(config=config)
+    except KeyboardInterrupt:
+        print("-" * 30)
+        print("Exiting from training early")
