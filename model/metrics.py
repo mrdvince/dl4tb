@@ -1,6 +1,5 @@
-
 import torch
-import pandas as pd
+
 
 def accuracy(output, target):
     with torch.no_grad():
@@ -21,7 +20,7 @@ def top_k_acc(output, target, k=3):
     return correct / len(target)
 
 
-class MetricTracker:
-    def __init__(self) -> None:
-        ...
-        # TODO
+# class MetricTracker:
+#     def __init__(self) -> None:
+#         ...
+#         # TODO
