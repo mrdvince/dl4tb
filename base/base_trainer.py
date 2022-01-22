@@ -1,9 +1,11 @@
 from abc import abstractmethod
+from pathlib import Path
 
 import numpy as np
 import torch
 
 from base.base_config import Config
+from logger.logger import get_logger
 
 
 class BaseTrainer:
@@ -29,57 +31,57 @@ class BaseTrainer:
         self.checkpoint_dir = config.save_dir
         # visualization
         # TODO: add wandb logging
+        self.logger = get_logger("train", config.verbosity)
 
-        @abstractmethod
-        def _train(self, epoch):
-            raise NotImplementedError
+    @abstractmethod
+    def _train(self, epoch):
+        raise NotImplementedError
 
-        def train(self):
-            not_improved = 0
-            for epoch in range(self.start_epoch, self.epochs + 1):
-                result = self._train(epoch)
+    def train(self):
+        not_improved = 0
+        for epoch in range(self.start_epoch, self.epochs + 1):
+            result = self._train(epoch)
+            # log dict
+            log = {"epoch": epoch}
+            log.update(result)
+            best = False
+            # default -> self.monitor_metric = 'val_loss'
+            if self.monitor_metric in result:
+                current = result[self.monitor_metric]
+                improved = (
+                    self.monitor_mode == "min" and current < self.monitor_best
+                ) or (self.monitor_mode == "max" and current > self.monitor_best)
+                if improved:
+                    self.monitor_best = current
+                    not_improved = 0
+                    best = True
+                else:
+                    not_improved += 1
+                if self.early_stop is not None:
+                    if not_improved > self.early_stop:
+                        print("early stopping at epoch {}".format(epoch))
+                        break
+            if epoch % self.save_period == 0:
+                self._save_checkpoint(epoch, is_best=True)
+            self.logger.info(log)
 
-                # log dict
-                log = {"epoch": epoch}
-                log.update(result)
-
-                best = False
-                # default -> self.monitor_metric = 'val_loss'
-                if self.monitor_metric in result:
-                    current = result[self.monitor_metric]
-                    improved = (
-                        self.monitor_mode == "min" and current < self.monitor_best
-                    ) or (self.monitor_mode == "max" and current > self.monitor_best)
-                    if improved:
-                        self.monitor_best = current
-                        not_improved = 0
-                        best = True
-                    else:
-                        not_improved += 1
-
-                    if self.early_stop is not None:
-                        if not_improved > self.early_stop:
-                            print("early stopping at epoch {}".format(epoch))
-                            break
-
-                if epoch % self.save_period == 0:
-                    self._save_checkpoint(self, epoch, is_best=best)
-
-        def _save_checkpoint(self, epoch, is_best=False):
-            arch = type(self.model).__name__
-            state = {
-                "arch": arch,
-                "epoch": epoch,
-                "cls_to_idx": self.data_loader.dataset.class_to_idx,
-                "state_dict": self.model.state_dict(),
-                "optimizer": self.optimizer.state_dict(),
-                "monitor_best": self.monitor_best,
-                "config": self.config,
-            }
-            filename = str(self.checkpoint_dir / "checkpoint-epoch{}.pth".format(epoch))
-            torch.save(state, filename)
-            print("Saving checkpoint: {} ...".format(filename))
-            if is_best:
-                best_filename = str(self.checkpoint_dir / "model_best.pth")
-                torch.save(state, best_filename)
-                print("Saving current best: {} ...".format(best_filename))
+    def _save_checkpoint(self, epoch, is_best=False):
+        arch = type(self.model).__name__
+        state = {
+            "arch": arch,
+            "epoch": epoch,
+            "cls_to_idx": self.train_loader.dataset.class_to_idx,
+            "state_dict": self.model.state_dict(),
+            "optimizer": self.optimizer.state_dict(),
+            "monitor_best": self.monitor_best,
+            "config": self.config,
+        }
+        filename = str(
+            Path(self.checkpoint_dir) / "checkpoint-epoch{}.pth".format(epoch)
+        )
+        torch.save(state, filename)
+        self.logger.info("Saving checkpoint: {} ...".format(filename))
+        if is_best:
+            best_filename = str(Path(self.checkpoint_dir) / "model_best.pth")
+            torch.save(state, best_filename)
+            self.logger.info("Saving current best: {} ...".format(best_filename))
