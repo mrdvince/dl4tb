@@ -8,6 +8,8 @@ resource "aws_instance" "habana" {
   ami           = "ami-0cf1d34c09c83dc91" # Deep Learning AMI Habana TensorFlow 2.5.0 SynapseAI 0.15.4 (Ubuntu 18.04) 20220105 
   instance_type = "dl1.24xlarge"
 
+  user_data = file(var.USER_DATA)
+
   tags = {
     Name = "habana"
   }
