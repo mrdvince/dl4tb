@@ -2,7 +2,7 @@
 name: dl4tb
 device: hpu
 arch:
-  type: Model
+  type: Densenet121
 dataloader:
   type: DataLoader
   data_dir: data/images/

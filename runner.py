@@ -15,8 +15,29 @@ from model import model as arch
 from trainer import Trainer
 
 
-def main(config):
+def get_device(config):
     logger = get_logger("train", config.verbosity)
+
+    if config.device is None:
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        if device == "cpu":
+            logger.info("No accelerator found, defaulting to using the CPU")
+    
+    if device == 'hpu':
+        try:
+            from habana_frameworks.torch.utils.library_loader import load_habana_module
+            load_habana_module()
+            device = "hpu"
+        except Exception as e:
+           device = "cuda" if torch.cuda.is_available() else "cpu" 
+        
+    if device == 'cpu': os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
+    
+    logger.info(f"Using device: {device}") 
+    
+    return torch.device(device)
+
+def main(config):
     # dataloaders
     dl = DataLoader(
         config.data_dir,
@@ -27,27 +48,7 @@ def main(config):
     )
     train_loader, valid_loader = dl.train_loader, dl.valid_loader
     #  device
-    if config.device == "cpu":
-        device = "cpu"
-    elif config.device == "hpu":
-        try:
-            from habana_frameworks.torch.utils.library_loader import \
-                load_habana_module
-
-            load_habana_module()
-            device = "hpu"
-        except Exception:
-            logger.warning(
-                "Habana module not found, checking for other acceptable devices"
-            )
-            device = "cuda" if torch.cuda.is_available() else "cpu"
-            if device == "cpu":
-                logger.info("No accelerator found, defaulting to using the CPU")
-    else:
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-        if device == "cpu":
-            logging.info("No accelerator found, defaulting to using the CPU")
-    device = torch.device(device)
+    device = get_device(config)
     loss = getattr(criterion, config.loss)
     metrics = [getattr(met, metric) for metric in config.metrics]
     model = getattr(arch, config.arch)(len(train_loader.dataset.classes))
@@ -87,9 +88,17 @@ if __name__ == "__main__":
     args.add_argument(
         "-c", "--config", type=str, default="config.yaml", help="config file"
     )
+    args.add_argument(
+        "-m", "--model", type=str, default="None", help="config file"
+    )
+    
     args = args.parse_args()
     lc = LoadConfig(os.path.join(args.config))
     config = lc.parse_config()
+    # update model if name provided
+    if args.model != "None":
+        config.model = args.model
+        
     # setup logger
     logger.setup_logging(Path(config.log_dir))
     try:
