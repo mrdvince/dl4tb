@@ -1,9 +1,42 @@
 import os
+from pathlib import Path
 
-from torchvision import datasets, transforms
+import pandas as pd
+import torch
+from PIL import Image
+from torchvision import transforms
 
 from base.base_data_loader import BaseDataLoader
 from base.parse_config import LoadConfig
+
+
+class Dataset(torch.utils.data.Dataset):
+    def __init__(self, data_dir, trsfm):
+        self.imgs = [path for path in Path(data_dir).rglob("*.png")]
+        self.train = pd.read_csv(os.path.join("data/", "train.csv"))
+        self.trsfm = trsfm
+
+    def __len__(self):
+        return len(self.imgs)
+
+    def __getitem__(self, idx):
+        img = Image.open(self.imgs[idx]).convert("RGB")
+        id = self.imgs[idx].name.removesuffix(".png")
+        try:
+            label = int(self.train[self.train["ID"] == id]["LABEL"])
+        except:
+            # images without labels
+            label = 0
+        img = self.trsfm(img)
+        return img, label
+
+    @property
+    def classes(self):
+        return ["negative", "positive"]
+
+    @property
+    def class_to_idx(self):
+        return {c: i for i, c in enumerate(self.classes)}
 
 
 class DataLoader(BaseDataLoader):
@@ -25,7 +58,9 @@ class DataLoader(BaseDataLoader):
             ]
         )
         self.data_dir = data_dir
-        self.dataset = datasets.ImageFolder(data_dir, transform=trsfm)
+        self.dataset = Dataset(
+            data_dir=data_dir, trsfm=trsfm
+        )  # datasets.ImageFolder(data_dir, transform=trsfm)
         super().__init__(
             self.dataset, batch_size, shuffle, validation_split, num_workers
         )
