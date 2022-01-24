@@ -29,8 +29,6 @@ class BaseTrainer:
         self.early_stop = config.early_stop
         self.start_epoch = 1
         self.checkpoint_dir = config.save_dir
-        # visualization
-        # TODO: add wandb logging
         self.logger = get_logger("train", config.verbosity)
         self.logger.info(self.model)
 

@@ -1,5 +1,4 @@
 import argparse
-import logging
 import os
 from pathlib import Path
 
@@ -22,20 +21,24 @@ def get_device(config):
         device = "cuda" if torch.cuda.is_available() else "cpu"
         if device == "cpu":
             logger.info("No accelerator found, defaulting to using the CPU")
-    
-    if device == 'hpu':
+
+    if device == "hpu":
         try:
-            from habana_frameworks.torch.utils.library_loader import load_habana_module
+            from habana_frameworks.torch.utils.library_loader import \
+                load_habana_module
+
             load_habana_module()
             device = "hpu"
         except Exception as e:
-           device = "cuda" if torch.cuda.is_available() else "cpu" 
-        
-    if device == 'cpu': os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
-    
-    logger.info(f"Using device: {device}") 
-    
+            device = "cuda" if torch.cuda.is_available() else "cpu"
+
+    if device == "cpu":
+        os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+
+    logger.info(f"Using device: {device}")
+
     return torch.device(device)
+
 
 def main(config):
     # dataloaders
@@ -88,17 +91,15 @@ if __name__ == "__main__":
     args.add_argument(
         "-c", "--config", type=str, default="config.yaml", help="config file"
     )
-    args.add_argument(
-        "-m", "--model", type=str, default="None", help="config file"
-    )
-    
+    args.add_argument("-m", "--model", type=str, default="None", help="config file")
+
     args = args.parse_args()
     lc = LoadConfig(os.path.join(args.config))
     config = lc.parse_config()
     # update model if name provided
     if args.model != "None":
         config.model = args.model
-        
+
     # setup logger
     logger.setup_logging(Path(config.log_dir))
     try:

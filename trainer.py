@@ -33,9 +33,8 @@ class Trainer(BaseTrainer):
         self.lr_scheduler = lr_scheduler
         self.log_step = int(math.sqrt(self.config.batch_size))
 
-        self.log = dict()
-
     def _train(self, epoch):
+        train_loss = 0.0
         self.model.train()
         pbar = tqdm(self.train_loader, desc="Training")
         for batch_idx, (data, target) in enumerate(pbar):
@@ -45,39 +44,45 @@ class Trainer(BaseTrainer):
             loss = self.criterion(output, target)
             loss.backward()
             self.optimizer.step()
-            self.log.update(self._log(self.log, target, output, loss))
+            train_loss += loss.item() * data.size(0)
             if batch_idx % self.log_step == 0:
                 pbar.set_postfix(
                     {
                         "Train Epoch": epoch,
-                        "Train Loss": loss.item(),
+                        "Train Loss": train_loss,
                     }
                 )
-        val_log = self._validate(epoch)
-        self.log.update(**{"val_" + k: v for k, v in val_log.items()})
+        train_loss = train_loss / len(self.train_loader.dataset)
+        val_loss = self._validate(epoch)
+
         if self.lr_scheduler is not None:
             self.lr_scheduler.step()
-        return self.log
+
+        return {
+            "train_loss": train_loss,
+            "val_loss": val_loss,
+        }.update(self._metrics(output, target))
+
+    def _metrics(self, output, target):
+        log = {}
+        for met in self.metrics:
+            log[met.__name__] = met(output, target)
+        return log
 
     def _validate(self, epoch):
+        valid_loss = 0.0
         self.model.eval()
         pbar = tqdm(self.valid_loader, desc="Validation")
         with torch.no_grad():
-            for batch_idx, (data, target) in enumerate(pbar):
+            for _, (data, target) in enumerate(pbar):
                 data, target = data.to(self.device), target.to(self.device)
                 output = self.model(data)
                 loss = self.criterion(output, target)
-                self.log.update(self._log(self.log, target, output, loss))
                 pbar.set_postfix(
                     {
                         "Val Epoch": epoch,
                         "Val Loss": loss.item(),
                     }
                 )
-        return self.log
-
-    def _log(self, log, target, output, loss, valid=False):
-        log["loss"] = loss.item()
-        for met in self.metrics:
-            log[met.__name__] = met(output, target)
-        return log
+                valid_loss += loss.item() * data.size(0)
+        return valid_loss / len(self.valid_loader.dataset)
