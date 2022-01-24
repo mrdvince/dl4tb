@@ -1,8 +1,7 @@
-from fileinput import filename
-from pathlib import Path
-import gdown
-
 import zipfile
+from pathlib import Path
+
+import gdown
 
 
 def get_data(url, path, filename):

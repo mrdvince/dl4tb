@@ -32,6 +32,7 @@ class BaseTrainer:
         # visualization
         # TODO: add wandb logging
         self.logger = get_logger("train", config.verbosity)
+        self.logger.info(self.model)
 
     @abstractmethod
     def _train(self, epoch):
