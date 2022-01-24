@@ -22,7 +22,7 @@ def get_device(config):
         if device == "cpu":
             logger.info("No accelerator found, defaulting to using the CPU")
 
-    if device == "hpu":
+    if config.device == "hpu":
         try:
             from habana_frameworks.torch.utils.library_loader import \
                 load_habana_module
@@ -32,7 +32,7 @@ def get_device(config):
         except Exception as e:
             device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    if device == "cpu":
+    if config.device == "cpu":
         os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
     logger.info(f"Using device: {device}")
