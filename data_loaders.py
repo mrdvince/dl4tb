@@ -25,9 +25,7 @@ class DataLoader(BaseDataLoader):
             ]
         )
         self.data_dir = data_dir
-        self.dataset = datasets.MNIST(
-            root=data_dir, train=True, transform=trsfm, download=True
-        )  # datasets.ImageFolder(data_dir, transform=trsfm)
+        self.dataset = datasets.ImageFolder(data_dir, transform=trsfm)
         super().__init__(
             self.dataset, batch_size, shuffle, validation_split, num_workers
         )
