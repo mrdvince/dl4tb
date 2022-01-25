@@ -21,7 +21,7 @@ class Dataset(torch.utils.data.Dataset):
 
     def __getitem__(self, idx):
         img = Image.open(self.imgs[idx]).convert("RGB")
-        id = self.imgs[idx].name.split('.')[0]# removesuffix(".png")
+        id = self.imgs[idx].name.split(".")[0]  # removesuffix(".png")
         try:
             label = int(self.train[self.train["ID"] == id]["LABEL"])
         except:
@@ -50,7 +50,9 @@ class DataLoader(BaseDataLoader):
     ):
         trsfm = transforms.Compose(
             [
-                transforms.Resize((24, 24)),
+                transforms.RandomResizedCrop((224, 224)),
+                # https://docs.habana.ai/en/v1.2.0/PyTorch_User_Guide/PyTorch_User_Guide.html#current-limitations
+                transforms.RandomHorizontalFlip(0.5),
                 transforms.ToTensor(),
                 transforms.Normalize(
                     mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
@@ -59,6 +61,7 @@ class DataLoader(BaseDataLoader):
         )
         self.data_dir = data_dir
         self.dataset = Dataset(data_dir=data_dir, trsfm=trsfm)
+        # import torchvision
         # self.dataset = torchvision.datasets.CIFAR10(root=self.data_dir, train=True, download=True, transform=trsfm)
         super().__init__(
             self.dataset, batch_size, shuffle, validation_split, num_workers
@@ -86,5 +89,5 @@ if __name__ == "__main__":
 
     dl = DataLoader(data_dir, batch_size, shuffle, validation_split, num_workers)
     print(dl.train_loader.dataset.classes)
-    print(len(dl.train_loader.dataset))
+    print(len(dl.train_loader))
     print(len(dl.valid_loader.dataset))

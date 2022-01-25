@@ -29,6 +29,8 @@ class BaseDataLoader:
             "shuffle": self.shuffle,
             "collate_fn": collate_fn,
             "num_workers": num_workers,
+            "pin_memory": True,
+            "drop_last": True,
         }
 
     def _split_sampler(self, v_split):
@@ -42,11 +44,26 @@ class BaseDataLoader:
 
         return train_sampler, valid_sampler
 
-    # using experimental dataloader
+    # use habana dataloader
     @property
     def loaders(self):
         loaders = namedtuple("loaders", ["train", "valid"])
-        train = (data.DataLoader(**self.init_kwargs, sampler=self.train_sampler),)
+        try:
+            import habana_dataloader
 
-        valid = (data.DataLoader(**self.init_kwargs, sampler=self.valid_sampler),)
+            # https://docs.habana.ai/en/v1.2.0/PyTorch_User_Guide/PyTorch_User_Guide.html#current-limitations
+            del self.init_kwargs["collate_fn"]
+            train = (
+                habana_dataloader.HabanaDataloader(
+                    **self.init_kwargs, sampler=self.train_sampler
+                ),
+            )
+            valid = (
+                habana_dataloader.HabanaDataloader(
+                    **self.init_kwargs, sampler=self.valid_sampler
+                ),
+            )
+        except ImportError:
+            train = (data.DataLoader(**self.init_kwargs, sampler=self.train_sampler),)
+            valid = (data.DataLoader(**self.init_kwargs, sampler=self.valid_sampler),)
         return loaders(train, valid)
