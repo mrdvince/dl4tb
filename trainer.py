@@ -6,6 +6,11 @@ from tqdm.auto import tqdm
 import wandb
 from base.base_trainer import BaseTrainer
 
+try:
+    from habana_frameworks.torch.hpex import hmp
+except ImportError:
+    """"""
+
 
 class Trainer(BaseTrainer):
     def __init__(
@@ -38,40 +43,46 @@ class Trainer(BaseTrainer):
         wandb.watch(self.model, self.criterion, log="all", log_freq=10)
         train_loss = []
         self.model.train()
-        # pbar = tqdm(self.train_loader, desc="Training")
-        for batch_idx, (data, target) in enumerate(self.train_loader):
+        pbar = tqdm(self.train_loader, desc="Training")
+        for batch_idx, (data, target) in enumerate(pbar):
             data, target = data.to(self.device), target.to(self.device)
             self.optimizer.zero_grad()
             output = self.model(data)
             loss = self.criterion(output, target)
             loss.backward()
-            self.optimizer.step()
+
+            if self.device.type == "hpu":
+                with hmp.disable_casts():
+                    self.optimizer.step()
+            else:
+                self.optimizer.step()
 
             # metrics stuff
             train_loss.append(loss.item())
 
             if batch_idx % self.log_step == 0:
-                # pbar.set_postfix(
-                #     {
-                #         "Train Epoch": epoch,
-                #         "Train Loss": loss.item(),
-                #     }
-                # )
-                print({
+                pbar.set_postfix(
+                    {
                         "Train Epoch": epoch,
                         "Train Loss": loss.item(),
-                    })
-
+                    }
+                )
         train_loss = sum(train_loss) / len(train_loss)
-        # val_log = self._validate(epoch)
-        print(train_loss)
+        val_log = self._validate(epoch)
 
         if self.lr_scheduler is not None:
-            self.lr_scheduler.step()
-        print("cows")
-        return {**{
-            "train_loss": round(train_loss, 4),
-        }}
+            if self.device.type == "hpu":
+                with hmp.disable_casts():
+                    self.lr_scheduler.step()
+            else:
+                self.lr_scheduler.step()
+
+        return {
+            **{
+                "train_loss": round(train_loss, 4),
+            },
+            **val_log,
+        }
 
     def _metrics(self, output, target):
         log = {}
@@ -96,6 +107,9 @@ class Trainer(BaseTrainer):
                 )
                 valid_loss.append(loss.item())
 
-        return {**self._metrics(output, target), **{
-            "val_loss": round(sum(valid_loss) / len(valid_loss), 4),
-        }}
+        return {
+            **self._metrics(output, target),
+            **{
+                "val_loss": round(sum(valid_loss) / len(valid_loss), 4),
+            },
+        }
