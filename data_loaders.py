@@ -12,7 +12,7 @@ from base.parse_config import LoadConfig
 
 class Dataset(torch.utils.data.Dataset):
     def __init__(self, data_dir, trsfm):
-        self.imgs = [path for path in Path(data_dir).rglob("*.png")]
+        self.imgs = [path for path in Path(data_dir + "train").rglob("*.png")]
         self.train = pd.read_csv(os.path.join("data/", "train.csv"))
         self.trsfm = trsfm
 
@@ -21,7 +21,7 @@ class Dataset(torch.utils.data.Dataset):
 
     def __getitem__(self, idx):
         img = Image.open(self.imgs[idx]).convert("RGB")
-        id = self.imgs[idx].name.removesuffix(".png")
+        id = self.imgs[idx].name.split('.')[0]# removesuffix(".png")
         try:
             label = int(self.train[self.train["ID"] == id]["LABEL"])
         except:
@@ -50,7 +50,7 @@ class DataLoader(BaseDataLoader):
     ):
         trsfm = transforms.Compose(
             [
-                transforms.Resize((224, 224)),
+                transforms.Resize((24, 24)),
                 transforms.ToTensor(),
                 transforms.Normalize(
                     mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]

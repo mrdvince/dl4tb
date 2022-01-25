@@ -6,7 +6,7 @@ import torchvision
 class Resnet34(nn.Module):
     def __init__(self, num_classes):
         super(Resnet34, self).__init__()
-        self.model = torchvision.models.resnet18(pretrained=True)
+        self.model = torchvision.models.resnet34(pretrained=True)
         for param in self.model.parameters():
             param.requires_grad = False
 

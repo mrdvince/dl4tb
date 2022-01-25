@@ -33,7 +33,7 @@ class BaseTrainer:
         self.start_epoch = 1
         self.checkpoint_dir = config.save_dir
         self.logger = get_logger("train", config.verbosity)
-        self.logger.info(self.model)
+        # self.logger.info(self.model)
 
     @abstractmethod
     def _train(self, epoch):
@@ -46,7 +46,7 @@ class BaseTrainer:
                 result = self._train(epoch)
                 # log dict
                 log = {"epoch": epoch}
-                log | result
+                log.update(result)
                 best = False
                 # default -> self.monitor_metric = 'val_loss'
                 if self.monitor_metric in result:
@@ -80,6 +80,7 @@ class BaseTrainer:
             "monitor_best": self.monitor_best,
             "config": self.config,
         }
+        model_artifact = wandb.Artifact('run_' + wandb.run.id + '_model', type='model', metadata={**state})
         filename = str(
             Path(self.checkpoint_dir) / "checkpoint-epoch{}.pth".format(epoch)
         )
@@ -89,5 +90,8 @@ class BaseTrainer:
             best_filename = str(Path(self.checkpoint_dir) / "model_best.pth")
             torch.save(state, best_filename)
             self.logger.info("Saving current best: {} ...".format(best_filename))
-            wandb.Artifact(best_filename)
-        wandb.Artifact(filename)
+            model_artifact.add_file(best_filename, name='model_best.pt')
+        model_artifact.add_file(best_filename, name="checkpoint-epoch{}.pth".format(epoch))
+        
+        wandb.log_artifact(model_artifact,
+                           aliases=['latest', 'last', 'epoch ' + str(epoch), 'best' if is_best else ''])

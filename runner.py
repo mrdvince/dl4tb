@@ -34,11 +34,41 @@ def get_device(config):
 
     if config.device == "cpu":
         os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+        device = "cpu"
 
     logger.info(f"Using device: {device}")
 
     return torch.device(device)
 
+def permute_params(model, to_filters_last, lazy_mode):
+    with torch.no_grad():
+        for name, param in model.named_parameters():
+            if(param.ndim == 4):
+                if to_filters_last:
+                    param.data = param.data.permute((2, 3, 1, 0))  # permute KCRS to RSCK 
+                else:
+                    param.data = param.data.permute((3, 2, 0, 1))  # permute RSCK to KCRS
+    if lazy_mode:
+        import habana_frameworks.torch.core as htcore
+        htcore.mark_step()
+
+def permute_momentum(optimizer, to_filters_last, lazy_mode):
+    # Permute the momentum buffer before using for checkpoint
+    for group in optimizer.param_groups:
+        for p in group['params']:
+            param_state = optimizer.state[p]
+            if 'momentum_buffer' in param_state:
+                buf = param_state['momentum_buffer']
+                if(buf.ndim == 4):
+                    if to_filters_last:
+                        buf = buf.permute((2,3,1,0))
+                    else:
+                        buf = buf.permute((3,2,0,1))
+                    param_state['momentum_buffer'] = buf
+
+    if lazy_mode:
+        import habana_frameworks.torch.core as htcore
+        htcore.mark_step()
 
 def main(config):
     # dataloaders
@@ -52,9 +82,11 @@ def main(config):
     train_loader, valid_loader = dl.train_loader, dl.valid_loader
     #  device
     device = get_device(config)
+    print(device)
     loss = getattr(criterion, config.loss)
     metrics = [getattr(met, metric) for metric in config.metrics]
     model = getattr(arch, config.arch)(len(train_loader.dataset.classes))
+    model.to(device)
     trainable_params = filter(lambda p: p.requires_grad, model.parameters())
     optim_args = {
         "lr": config.lr,
@@ -71,6 +103,9 @@ def main(config):
     scheduler = getattr(torch.optim.lr_scheduler, config.lr_scheduler)(
         **scheduler_args, optimizer=optimizer
     )
+    if device.type == "hpu":
+        permute_params(model, True, False)
+        permute_momentum(optimizer, True, False)
 
     trainer = Trainer(
         model,
