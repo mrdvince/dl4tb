@@ -40,6 +40,14 @@ class BaseTrainer:
         raise NotImplementedError
 
     def train(self):
+        try:
+            from habana_frameworks.torch.hpex import hmp
+
+            hmp.convert()
+        except ImportError:
+            """
+            Habana module is not installed. So do nothing.
+            """
         with wandb.init(project="dl4tb", config=self.config):
             not_improved = 0
             for epoch in range(self.start_epoch, self.epochs + 1):
@@ -80,7 +88,9 @@ class BaseTrainer:
             "monitor_best": self.monitor_best,
             "config": self.config,
         }
-        model_artifact = wandb.Artifact('run_' + wandb.run.id + '_model', type='model', metadata={**state})
+        model_artifact = wandb.Artifact(
+            "run_" + wandb.run.id + "_model", type="model", metadata={**state}
+        )
         filename = str(
             Path(self.checkpoint_dir) / "checkpoint-epoch{}.pth".format(epoch)
         )
@@ -90,8 +100,17 @@ class BaseTrainer:
             best_filename = str(Path(self.checkpoint_dir) / "model_best.pth")
             torch.save(state, best_filename)
             self.logger.info("Saving current best: {} ...".format(best_filename))
-            model_artifact.add_file(best_filename, name='model_best.pt')
-        model_artifact.add_file(best_filename, name="checkpoint-epoch{}.pth".format(epoch))
-        
-        wandb.log_artifact(model_artifact,
-                           aliases=['latest', 'last', 'epoch ' + str(epoch), 'best' if is_best else ''])
+            model_artifact.add_file(best_filename, name="model_best.pt")
+        model_artifact.add_file(
+            best_filename, name="checkpoint-epoch{}.pth".format(epoch)
+        )
+
+        wandb.log_artifact(
+            model_artifact,
+            aliases=[
+                "latest",
+                "last",
+                "epoch " + str(epoch),
+                "best" if is_best else "",
+            ],
+        )
