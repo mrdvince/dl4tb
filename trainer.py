@@ -3,6 +3,7 @@ import math
 import torch
 from tqdm.auto import tqdm
 
+import wandb
 from base.base_trainer import BaseTrainer
 
 
@@ -34,7 +35,8 @@ class Trainer(BaseTrainer):
         self.log_step = int(math.sqrt(self.config.batch_size))
 
     def _train(self, epoch):
-        train_loss = 0.0
+        wandb.watch(self.model, self.criterion, log="all", log_freq=10)
+        train_loss = []
         self.model.train()
         pbar = tqdm(self.train_loader, desc="Training")
         for batch_idx, (data, target) in enumerate(pbar):
@@ -44,24 +46,26 @@ class Trainer(BaseTrainer):
             loss = self.criterion(output, target)
             loss.backward()
             self.optimizer.step()
-            train_loss += loss.item() * data.size(0)
+
+            # metrics stuff
+            train_loss.append(loss.item())
+
             if batch_idx % self.log_step == 0:
                 pbar.set_postfix(
                     {
                         "Train Epoch": epoch,
-                        "Train Loss": train_loss,
+                        "Train Loss": loss.item(),
                     }
                 )
-        train_loss = train_loss / len(self.train_loader.dataset)
-        val_loss = self._validate(epoch)
+
+        train_loss = sum(train_loss) / len(train_loss)
+        val_log = self._validate(epoch)
 
         if self.lr_scheduler is not None:
             self.lr_scheduler.step()
-
         return {
-            "train_loss": train_loss,
-            "val_loss": val_loss,
-        }.update(self._metrics(output, target))
+            "train_loss": round(train_loss, 4),
+        } | val_log
 
     def _metrics(self, output, target):
         log = {}
@@ -70,7 +74,7 @@ class Trainer(BaseTrainer):
         return log
 
     def _validate(self, epoch):
-        valid_loss = 0.0
+        valid_loss = []
         self.model.eval()
         pbar = tqdm(self.valid_loader, desc="Validation")
         with torch.no_grad():
@@ -84,5 +88,8 @@ class Trainer(BaseTrainer):
                         "Val Loss": loss.item(),
                     }
                 )
-                valid_loss += loss.item() * data.size(0)
-        return valid_loss / len(self.valid_loader.dataset)
+                valid_loss.append(loss.item())
+
+        return {
+            "val_loss": round(sum(valid_loss) / len(valid_loss), 4),
+        } | self._metrics(output, target)

@@ -58,9 +58,8 @@ class DataLoader(BaseDataLoader):
             ]
         )
         self.data_dir = data_dir
-        self.dataset = Dataset(
-            data_dir=data_dir, trsfm=trsfm
-        )  # datasets.ImageFolder(data_dir, transform=trsfm)
+        self.dataset = Dataset(data_dir=data_dir, trsfm=trsfm)
+        # self.dataset = torchvision.datasets.CIFAR10(root=self.data_dir, train=True, download=True, transform=trsfm)
         super().__init__(
             self.dataset, batch_size, shuffle, validation_split, num_workers
         )

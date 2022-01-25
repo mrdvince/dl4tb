@@ -4,8 +4,11 @@ from pathlib import Path
 import numpy as np
 import torch
 
+import wandb
 from base.base_config import Config
 from logger.logger import get_logger
+
+wandb.login()
 
 
 class BaseTrainer:
@@ -37,32 +40,34 @@ class BaseTrainer:
         raise NotImplementedError
 
     def train(self):
-        not_improved = 0
-        for epoch in range(self.start_epoch, self.epochs + 1):
-            result = self._train(epoch)
-            # log dict
-            log = {"epoch": epoch}
-            log.update(result)
-            best = False
-            # default -> self.monitor_metric = 'val_loss'
-            if self.monitor_metric in result:
-                current = result[self.monitor_metric]
-                improved = (
-                    self.monitor_mode == "min" and current < self.monitor_best
-                ) or (self.monitor_mode == "max" and current > self.monitor_best)
-                if improved:
-                    self.monitor_best = current
-                    not_improved = 0
-                    best = True
-                else:
-                    not_improved += 1
-                if self.early_stop is not None:
-                    if not_improved > self.early_stop:
-                        print("early stopping at epoch {}".format(epoch))
-                        break
-            if epoch % self.save_period == 0:
-                self._save_checkpoint(epoch, is_best=True)
-            self.logger.info(log)
+        with wandb.init(project="dl4tb", config=self.config):
+            not_improved = 0
+            for epoch in range(self.start_epoch, self.epochs + 1):
+                result = self._train(epoch)
+                # log dict
+                log = {"epoch": epoch}
+                log | result
+                best = False
+                # default -> self.monitor_metric = 'val_loss'
+                if self.monitor_metric in result:
+                    current = result[self.monitor_metric]
+                    improved = (
+                        self.monitor_mode == "min" and current < self.monitor_best
+                    ) or (self.monitor_mode == "max" and current > self.monitor_best)
+                    if improved:
+                        self.monitor_best = current
+                        not_improved = 0
+                        best = True
+                    else:
+                        not_improved += 1
+                    if self.early_stop is not None:
+                        if not_improved > self.early_stop:
+                            print("early stopping at epoch {}".format(epoch))
+                            break
+                if epoch % self.save_period == 0:
+                    self._save_checkpoint(epoch, is_best=True)
+                wandb.log(log)
+                self.logger.info(log)
 
     def _save_checkpoint(self, epoch, is_best=False):
         arch = type(self.model).__name__
@@ -84,3 +89,5 @@ class BaseTrainer:
             best_filename = str(Path(self.checkpoint_dir) / "model_best.pth")
             torch.save(state, best_filename)
             self.logger.info("Saving current best: {} ...".format(best_filename))
+            wandb.Artifact(best_filename)
+        wandb.Artifact(filename)
