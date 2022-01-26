@@ -3,10 +3,10 @@ import torch.nn as nn
 import torchvision
 
 
-class Resnet34(nn.Module):
+class Resnet101(nn.Module):
     def __init__(self, num_classes):
-        super(Resnet34, self).__init__()
-        self.model = torchvision.models.resnet34(pretrained=True)
+        super(Resnet101, self).__init__()
+        self.model = torchvision.models.resnet101(pretrained=True)
         for param in self.model.parameters():
             param.requires_grad = False
 

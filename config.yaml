@@ -2,11 +2,11 @@
 name: dl4tb
 device: hpu
 arch:
-  type: Resnet34
+  type: Resnet101
 dataloader:
   type: DataLoader
   data_dir: data/tb_data/
-  batch_size: 64
+  batch_size: 32
   shuffle: false
   validation_split: 0.2
   num_workers: 4
