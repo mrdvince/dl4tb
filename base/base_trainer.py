@@ -79,6 +79,7 @@ class BaseTrainer:
 
     def _save_checkpoint(self, epoch, is_best=False):
         arch = type(self.model).__name__
+        self.model.to('cpu')
         state = {
             "arch": arch,
             "epoch": epoch,
@@ -101,8 +102,9 @@ class BaseTrainer:
             torch.save(state, best_filename)
             self.logger.info("Saving current best: {} ...".format(best_filename))
             model_artifact.add_file(best_filename, name="model_best.pt")
+        
         model_artifact.add_file(
-            best_filename, name="checkpoint-epoch{}.pth".format(epoch)
+            filename, name="checkpoint-epoch{}.pth".format(epoch)
         )
 
         wandb.log_artifact(
