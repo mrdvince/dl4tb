@@ -3,6 +3,7 @@ from pathlib import Path
 
 import numpy as np
 import torch
+from utils import get_device
 
 import wandb
 from base.base_config import Config
@@ -40,6 +41,7 @@ class BaseTrainer:
         raise NotImplementedError
 
     def train(self):
+        self.model.to(get_device(self.config))
         try:
             from habana_frameworks.torch.hpex import hmp
 
@@ -79,6 +81,7 @@ class BaseTrainer:
 
     def _save_checkpoint(self, epoch, is_best=False):
         arch = type(self.model).__name__
+        self.model.to("cpu")
         state = {
             "arch": arch,
             "epoch": epoch,
