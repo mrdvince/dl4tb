@@ -5,7 +5,7 @@ from pathlib import Path
 import torch
 
 from base.parse_config import LoadConfig
-from data_loaders import DataLoader
+from data_loader import DataLoader
 from logger import logger
 from logger.logger import get_logger
 from model import criterion
@@ -91,7 +91,6 @@ def main(config):
     train_loader, valid_loader = dl.train_loader, dl.valid_loader
     #  device
     device = get_device(config)
-    print(device)
     loss = getattr(criterion, config.loss)
     metrics = [getattr(met, metric) for metric in config.metrics]
     model = getattr(arch, config.arch)(len(train_loader.dataset.classes))
