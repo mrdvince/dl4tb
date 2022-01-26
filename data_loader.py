@@ -50,7 +50,7 @@ class DataLoader(BaseDataLoader):
     ):
         trsfm = transforms.Compose(
             [
-                transforms.RandomResizedCrop((224, 224)),
+                transforms.RandomResizedCrop((512,)),
                 # https://docs.habana.ai/en/v1.2.0/PyTorch_User_Guide/PyTorch_User_Guide.html#current-limitations
                 transforms.RandomHorizontalFlip(0.5),
                 transforms.ToTensor(),
@@ -63,6 +63,10 @@ class DataLoader(BaseDataLoader):
         self.dataset = Dataset(data_dir=data_dir, trsfm=trsfm)
         # import torchvision
         # self.dataset = torchvision.datasets.CIFAR10(root=self.data_dir, train=True, download=True, transform=trsfm)
+        if num_workers<= 2:
+            num_workers = num_workers
+        else:
+            num_workers = torch.multiprocessing.cpu_count()
         super().__init__(
             self.dataset, batch_size, shuffle, validation_split, num_workers
         )
