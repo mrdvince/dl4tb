@@ -95,7 +95,7 @@ class Trainer(BaseTrainer):
         self.model.eval()
         pbar = tqdm(self.valid_loader, desc="Validation")
         with torch.no_grad():
-            for _, (data, target) in enumerate(self.valid_loader):
+            for _, (data, target) in enumerate(pbar):
                 data, target = data.to(self.device), target.to(self.device)
                 output = self.model(data)
                 loss = self.criterion(output, target)

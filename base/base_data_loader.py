@@ -52,14 +52,14 @@ class BaseDataLoader:
             import habana_dataloader
 
             # https://docs.habana.ai/en/v1.2.0/PyTorch_User_Guide/PyTorch_User_Guide.html#current-limitations
-            del self.init_kwargs["collate_fn"]
+            self.init_kwargs["collate_fn"] = None
             train = (
-                habana_dataloader.HabanaDataloader(
+                habana_dataloader.HabanaDataLoader(
                     **self.init_kwargs, sampler=self.train_sampler
                 ),
             )
             valid = (
-                habana_dataloader.HabanaDataloader(
+                habana_dataloader.HabanaDataLoader(
                     **self.init_kwargs, sampler=self.valid_sampler
                 ),
             )
