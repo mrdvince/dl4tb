@@ -116,4 +116,4 @@ class BaseTrainer:
                 "best" if is_best else "",
             ],
         )
-        model = self.model.to(self.config)
+        model = self.model.to(self.config.device)
