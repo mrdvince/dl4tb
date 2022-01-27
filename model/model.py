@@ -17,14 +17,14 @@ class Resnet101(nn.Module):
             nn.ReLU(),
             nn.Linear(512, num_classes),
         )
-        for m in self.model.fc:
-            if isinstance(m, nn.Linear):
-                # using the range [−𝑦,𝑦] , where  𝑦=1/√𝑛 , 𝑛 is the number of inputs to a given neuron.
-                # get the number of the inputs
-                n = m.in_features
-                y = 1.0 / np.sqrt(n)
-                m.weight.data.uniform_(-y, y)
-                m.bias.data.fill_(0)
+        # for m in self.model.fc:
+        #     if isinstance(m, nn.Linear):
+        #         # using the range [−𝑦,𝑦] , where  𝑦=1/√𝑛 , 𝑛 is the number of inputs to a given neuron.
+        #         # get the number of the inputs
+        #         n = m.in_features
+        #         y = 1.0 / np.sqrt(n)
+        #         m.weight.data.uniform_(-y, y)
+        #         m.bias.data.fill_(0)
 
     def forward(self, x):
         return self.model(x)

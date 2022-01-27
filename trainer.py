@@ -1,6 +1,7 @@
 import math
 
 import torch
+from model import metrics
 import wandb
 from tqdm.auto import tqdm
 
@@ -116,7 +117,8 @@ class Trainer(BaseTrainer):
                 )
                 valid_loss.append(loss.item())
 
-                acc, pred = self._metrics(output, target)
+                # acc, pred = self._metrics(output, target)
+                acc, pred, _ = metrics.accuracy(output, target)
                 log["accuracy"].append(acc)
 
                 # log images to wandb images
