@@ -3,11 +3,11 @@ from pathlib import Path
 
 import numpy as np
 import torch
-from utils import get_device
 
 import wandb
 from base.base_config import Config
 from logger.logger import get_logger
+from utils import get_device
 
 wandb.login()
 
@@ -104,10 +104,8 @@ class BaseTrainer:
             torch.save(state, best_filename)
             self.logger.info("Saving current best: {} ...".format(best_filename))
             model_artifact.add_file(best_filename, name="model_best.pt")
-        
-        model_artifact.add_file(
-            filename, name="checkpoint-epoch{}.pth".format(epoch)
-        )
+
+        model_artifact.add_file(filename, name="checkpoint-epoch{}.pth".format(epoch))
 
         wandb.log_artifact(
             model_artifact,

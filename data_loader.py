@@ -63,7 +63,7 @@ class DataLoader(BaseDataLoader):
         self.dataset = Dataset(data_dir=data_dir, trsfm=trsfm)
         # import torchvision
         # self.dataset = torchvision.datasets.CIFAR10(root=self.data_dir, train=True, download=True, transform=trsfm)
-        if num_workers<= 2:
+        if num_workers <= 2:
             num_workers = num_workers
         else:
             num_workers = torch.multiprocessing.cpu_count()

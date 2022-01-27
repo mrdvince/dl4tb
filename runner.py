@@ -7,14 +7,11 @@ import torch
 from base.parse_config import LoadConfig
 from data_loader import DataLoader
 from logger import logger
-from logger.logger import get_logger
 from model import criterion
 from model import metrics as met  # avoiding name collison
 from model import model as arch
 from trainer import Trainer
 from utils import get_device, permute_momentum, permute_params
-
-
 
 
 def main(config):
