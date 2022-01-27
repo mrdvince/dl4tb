@@ -3,8 +3,8 @@ from pathlib import Path
 
 import numpy as np
 import torch
-
 import wandb
+
 from base.base_config import Config
 from logger.logger import get_logger
 from utils import get_device
@@ -95,7 +95,7 @@ class BaseTrainer:
         filename = str(
             Path(self.checkpoint_dir) / "checkpoint-epoch{}.pth".format(epoch)
         )
-        torch.save(model.state_dict(),filename)
+        torch.save(model.state_dict(), filename)
         self.logger.info("Saving checkpoint: {} ...".format(filename))
         if is_best:
             best_filename = str(Path(self.checkpoint_dir) / "model_best.pth")

@@ -1,8 +1,9 @@
-
 import os
 
 import torch
+
 from logger.logger import get_logger
+
 
 def get_device(config):
     logger = get_logger("train", config.verbosity)

@@ -1,9 +1,9 @@
 import math
 
 import torch
+import wandb
 from tqdm.auto import tqdm
 
-import wandb
 from base.base_trainer import BaseTrainer
 
 try:
@@ -85,21 +85,22 @@ class Trainer(BaseTrainer):
         }
 
     def _metrics(self, output, target):
-        accuracy, pred, total_correct = self.metrics[0](output, target)
-        topk, topk_pred, topk_total_correct = self.metrics[1](output, target, k=1)
-        return (
-            {
-                self.metrics[0].__name__: round(accuracy, 4),
-                self.metrics[1].__name__: round(topk, 4),
-            },
-            pred,
-            topk_total_correct,
-        )
+        accuracy, pred, _ = self.metrics[0](output, target)
+        # topk, _, _ = self.metrics[1](output, target, k=1)
+        return round(accuracy, 4), pred
+        # return (
+        #     {
+        #         self.metrics[0].__name__: round(accuracy, 4),
+        #         self.metrics[1].__name__: round(topk, 4),
+        #     },
+        #     pred,
+
+        # )
 
     def _validate(self, epoch):
         valid_loss = []
         example_images = []
-        log = {}
+        log = {"accuracy": []}
         self.model.eval()
         pbar = tqdm(self.valid_loader, desc="Validation")
         with torch.no_grad():
@@ -113,20 +114,23 @@ class Trainer(BaseTrainer):
                         "Val Loss": loss.item(),
                     }
                 )
-                met_dict, pred, total_correct = self._metrics(output, target)
-                log.update(met_dict)
+                valid_loss.append(loss.item())
+
+                acc, pred = self._metrics(output, target)
+                log["accuracy"].append(acc)
 
                 # log images to wandb images
                 classes = self.train_loader.dataset.classes
                 if len(example_images) < 4:
                     example_images.append(
                         wandb.Image(
-                            data[0],caption=f"Pred: {classes[pred[0]]} Target: {classes[target[0]]}",
+                            data[0],
+                            caption=f"Pred: {classes[pred[0]]} Target: {classes[target[0]]}",
                         )
                     )
-        
-                valid_loss.append(loss.item())
+
         wandb.log({"Images": example_images})
+        log["accuracy"] = sum(log["accuracy"]) / len(log["accuracy"])
         return {
             **log,
             **{
