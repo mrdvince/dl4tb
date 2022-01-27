@@ -68,6 +68,7 @@ class BaseTrainer:
                         self.monitor_best = current
                         not_improved = 0
                         best = True
+                        self._save_checkpoint(epoch, is_best=True)
                     else:
                         not_improved += 1
                     if self.early_stop is not None:
@@ -75,7 +76,7 @@ class BaseTrainer:
                             print("early stopping at epoch {}".format(epoch))
                             break
                 if epoch % self.save_period == 0:
-                    self._save_checkpoint(epoch, is_best=True)
+                    self._save_checkpoint(epoch, is_best=False)
                 wandb.log(log)
                 self.logger.info(log)
 
@@ -84,12 +85,9 @@ class BaseTrainer:
         # move model to cpu
         model = self.model.to("cpu")
         state = {
-            "arch": arch,
-            "epoch": epoch,
             "cls_to_idx": self.train_loader.dataset.class_to_idx,
             "optimizer": self.optimizer.state_dict(),
             "monitor_best": self.monitor_best,
-            "config": self.config,
         }
         model_artifact = wandb.Artifact(
             "run_" + wandb.run.id + "_model", type="model", metadata={**state}
@@ -118,4 +116,4 @@ class BaseTrainer:
                 "best" if is_best else "",
             ],
         )
-        model = self.model.to(get_device(self.config))
+        model = self.model.to(self.config)

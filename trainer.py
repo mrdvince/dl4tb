@@ -118,7 +118,7 @@ class Trainer(BaseTrainer):
 
                 # log images to wandb images
                 classes = self.train_loader.dataset.classes
-                if len(example_images) < 5:
+                if len(example_images) < 4:
                     example_images.append(
                         wandb.Image(
                             data[0],caption=f"Pred: {classes[pred[0]]} Target: {classes[target[0]]}",
