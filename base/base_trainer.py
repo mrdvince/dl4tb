@@ -50,7 +50,7 @@ class BaseTrainer:
             """
             Habana module is not installed. So do nothing.
             """
-        with wandb.init(project="dl4tb", config=self.config):
+        with wandb.init(project="dl4tb", config=self.config, name=f"{self.config.device}_run"):
             not_improved = 0
             for epoch in range(self.start_epoch, self.epochs + 1):
                 result = self._train(epoch)
@@ -81,12 +81,12 @@ class BaseTrainer:
 
     def _save_checkpoint(self, epoch, is_best=False):
         arch = type(self.model).__name__
-        self.model.to("cpu")
+        # move model to cpu
+        model = self.model.to("cpu")
         state = {
             "arch": arch,
             "epoch": epoch,
             "cls_to_idx": self.train_loader.dataset.class_to_idx,
-            "state_dict": self.model.state_dict(),
             "optimizer": self.optimizer.state_dict(),
             "monitor_best": self.monitor_best,
             "config": self.config,
@@ -97,11 +97,13 @@ class BaseTrainer:
         filename = str(
             Path(self.checkpoint_dir) / "checkpoint-epoch{}.pth".format(epoch)
         )
-        torch.save(state, filename)
+        torch.save(model.state_dict(),filename)
         self.logger.info("Saving checkpoint: {} ...".format(filename))
         if is_best:
             best_filename = str(Path(self.checkpoint_dir) / "model_best.pth")
-            torch.save(state, best_filename)
+            # For some reason i  get this saving the state when running on HPUs
+            # RuntimeError: unsupported Storage type, TODO later
+            torch.save(model.state_dict(), best_filename)
             self.logger.info("Saving current best: {} ...".format(best_filename))
             model_artifact.add_file(best_filename, name="model_best.pt")
 
@@ -116,3 +118,4 @@ class BaseTrainer:
                 "best" if is_best else "",
             ],
         )
+        model = self.model.to(get_device(self.config))

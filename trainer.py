@@ -121,13 +121,12 @@ class Trainer(BaseTrainer):
                 if len(example_images) < 5:
                     example_images.append(
                         wandb.Image(
-                            data[0].cpu().numpy(),
-                            caption=f"Pred: {classes[pred[0]]} Target: {classes[target[0]]}",
+                            data[0],caption=f"Pred: {classes[pred[0]]} Target: {classes[target[0]]}",
                         )
                     )
-
+        
                 valid_loss.append(loss.item())
-
+        wandb.log({"Images": example_images})
         return {
             **log,
             **{

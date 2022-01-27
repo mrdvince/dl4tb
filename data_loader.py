@@ -40,6 +40,26 @@ class Dataset(torch.utils.data.Dataset):
 
 
 class DataLoader(BaseDataLoader):
+    """Returns a training and validation data loader.
+    Example:
+    >>> lc = LoadConfig(os.path.join("config.yaml"))
+    >>> conf = lc.parse_config()
+    >>> data_dir = conf.data_dir
+    >>> batch_size = conf.batch_size
+    >>> shuffle = conf.shuffle
+    >>> validation_split = conf.validation_split
+    >>> num_workers = conf.num_workers
+    
+    >>> dl = DataLoader(data_dir, batch_size, shuffle, validation_split, num_workers)
+    >>> print(dl.train_loader.dataset.classes)
+    >>> print(len(dl.train_loader))
+    print(len(dl.valid_loader.dataset))
+
+
+    Args:
+        BaseDataLoader: [The base data loader class]
+        
+    """
     def __init__(
         self,
         data_dir,
@@ -67,6 +87,7 @@ class DataLoader(BaseDataLoader):
             num_workers = num_workers
         else:
             num_workers = torch.multiprocessing.cpu_count()
+        
         super().__init__(
             self.dataset, batch_size, shuffle, validation_split, num_workers
         )
@@ -80,18 +101,3 @@ class DataLoader(BaseDataLoader):
     def valid_loader(self):
         valid = self.loaders.valid
         return valid[0]
-
-
-if __name__ == "__main__":
-    lc = LoadConfig(os.path.join("config.yaml"))
-    conf = lc.parse_config()
-    data_dir = conf.data_dir
-    batch_size = conf.batch_size
-    shuffle = conf.shuffle
-    validation_split = conf.validation_split
-    num_workers = conf.num_workers
-
-    dl = DataLoader(data_dir, batch_size, shuffle, validation_split, num_workers)
-    print(dl.train_loader.dataset.classes)
-    print(len(dl.train_loader))
-    print(len(dl.valid_loader.dataset))
