@@ -1,8 +1,9 @@
 import pytorch_lightning as pl
 import torch
 import torch.nn as nn
+import torchmetrics
 import torchvision
-from sklearn.metrics import accuracy_score
+import wandb
 
 
 class Model(pl.LightningModule):
@@ -24,6 +25,18 @@ class Model(pl.LightningModule):
             nn.Linear(512, self.num_classes),
         )
         self.criterion = nn.CrossEntropyLoss()
+        # metrics
+        self.train_accuracy_metric = torchmetrics.Accuracy()
+        self.val_accuracy_metric = torchmetrics.Accuracy()
+        self.f1_metric = torchmetrics.F1(num_classes=self.num_classes)
+        self.precision_macro_metric = torchmetrics.Precision(
+            average="macro", num_classes=self.num_classes
+        )
+        self.recall_macro_metric = torchmetrics.Recall(
+            average="macro", num_classes=self.num_classes
+        )
+        self.precision_micro_metric = torchmetrics.Precision(average="micro")
+        self.recall_micro_metric = torchmetrics.Recall(average="micro")
 
     def get_progress_bar_dict(self):
         tqdm_dict = super().get_progress_bar_dict()
@@ -42,13 +55,40 @@ class Model(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         images, labels = batch
-        logits = self.forward(images)
-        loss = self.criterion(logits, labels)
-        _, preds = torch.max(logits, 1)
-        val_acc = accuracy_score(labels.cpu(), preds.cpu())
-        val_acc = torch.tensor(val_acc, dtype=torch.float)
-        self.log("val_loss", loss, on_epoch=True, prog_bar=True)
-        self.log("val_acc", val_acc, on_epoch=True, prog_bar=True)
+        outputs = self.forward(images)
+        preds = torch.argmax(outputs, dim=1)
+        loss = self.criterion(outputs, labels)
+        # Metrics
+        valid_acc = self.val_accuracy_metric(preds, labels)
+        precision_macro = self.precision_macro_metric(preds, labels)
+        recall_macro = self.recall_macro_metric(preds, labels)
+        precision_micro = self.precision_micro_metric(preds, labels)
+        recall_micro = self.recall_micro_metric(preds, labels)
+        f1 = self.f1_metric(preds, labels)
+
+        # Logging metrics
+        self.log("valid/loss", loss, prog_bar=True, on_step=True)
+        self.log("valid/acc", valid_acc, prog_bar=True)
+        self.log("valid/precision_macro", precision_macro, prog_bar=True)
+        self.log("valid/recall_macro", recall_macro, prog_bar=True)
+        self.log("valid/precision_micro", precision_micro, prog_bar=True)
+        self.log("valid/recall_micro", recall_micro, prog_bar=True)
+        self.log("valid/f1", f1, prog_bar=True)
+        return {"labels": labels, "logits": outputs}
+
+    def validation_epoch_end(self, outputs):
+        labels = torch.cat([x["labels"] for x in outputs])
+        logits = torch.cat([x["logits"] for x in outputs])
+        preds = torch.argmax(logits, 1)
+
+        # cm = confusion_matrix(labels.numpy(), preds.numpy())
+        self.logger.experiment.log(
+            {
+                "conf": wandb.plot.confusion_matrix(
+                    probs=logits.numpy(), y_true=labels.numpy()
+                )
+            }
+        )
 
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters(), lr=self.lr)
