@@ -30,7 +30,7 @@ class Dataset(torch.utils.data.Dataset):
 
 
 class DataModule(pl.LightningDataModule):
-    def __init__(self, data_dir: str = "/home/vinc3/Projects/dl4tb/data/tb_data"):
+    def __init__(self, data_dir: str = "data/tb_data"):
         super(DataModule, self).__init__()
         self.transforms = transforms.Compose(
             [
