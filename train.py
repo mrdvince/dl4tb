@@ -45,7 +45,7 @@ def main(cfg):
     data: pl.LightningDataModule = DataModule(config=cfg)
     model = Model(num_classes=cfg.model.num_classes)
     check_point = pl.callbacks.ModelCheckpoint(
-        dirpath="saved/checkpoints",
+        dirpath="checkpoints",
         filename="model_checkpoint_{epoch}",
         save_top_k=3,
         verbose=True,
