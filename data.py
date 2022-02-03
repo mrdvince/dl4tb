@@ -15,7 +15,7 @@ from torchvision import transforms
 class Dataset(torch.utils.data.Dataset):
     def __init__(self, data_dir, trsfm):
         self.imgs = [path for path in Path(data_dir).rglob("*.png")]
-        self.train = pd.read_csv(os.path.join("data/", "train.csv"))
+        self.train = pd.read_csv(os.path.join(data_dir, "../..", "train.csv"))
         self.trsfm = trsfm
 
     def __len__(self):
@@ -30,7 +30,7 @@ class Dataset(torch.utils.data.Dataset):
 
 
 class DataModule(pl.LightningDataModule):
-    def __init__(self, data_dir: str = "data/tb_data"):
+    def __init__(self, config):
         super(DataModule, self).__init__()
         self.transforms = transforms.Compose(
             [
@@ -41,17 +41,23 @@ class DataModule(pl.LightningDataModule):
                 ),
             ]
         )
-        self.data_dir = data_dir
+        self.config = config
+        self.data_dir = (
+            self.config.processing.project_root + self.config.processing.data_dir
+        )
 
     def prepare_data(self) -> None:
-        # download data
-        path = "data"
-        filename = "tb_data.zip"
-        url = "https://drive.google.com/uc?id=1KdpV3M27kV-_QOQOrAentfzZ2tew8YS-&"
-        path = Path(path)
+        filename = self.config.processing.zip_file
+        path = Path(
+            self.config.processing.project_root + self.config.processing.data_path
+        )
         path.mkdir(parents=True, exist_ok=True)
         if not path.joinpath(filename).exists():
-            gdown.download(url, path.joinpath(filename).as_posix(), quiet=False)
+            gdown.download(
+                self.config.processing.data_url,
+                path.joinpath(filename).as_posix(),
+                quiet=False,
+            )
             # extract the zip file
             with zipfile.ZipFile(str(path / filename), "r") as zip_ref:
                 zip_ref.extractall(path / filename.replace(".zip", ""))
