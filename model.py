@@ -26,9 +26,12 @@ class Model(pl.LightningModule):
         )
         self.criterion = nn.CrossEntropyLoss()
         # metrics
+
         self.train_accuracy_metric = torchmetrics.Accuracy()
         self.val_accuracy_metric = torchmetrics.Accuracy()
-        self.f1_metric = torchmetrics.F1(num_classes=self.num_classes)
+        self.f1_metric = torchmetrics.classification.f_beta.F1Score(
+            num_classes=self.num_classes
+        )
         self.precision_macro_metric = torchmetrics.Precision(
             average="macro", num_classes=self.num_classes
         )
@@ -37,12 +40,6 @@ class Model(pl.LightningModule):
         )
         self.precision_micro_metric = torchmetrics.Precision(average="micro")
         self.recall_micro_metric = torchmetrics.Recall(average="micro")
-
-    def get_progress_bar_dict(self):
-        tqdm_dict = super().get_progress_bar_dict()
-        if "v_num" in tqdm_dict:
-            del tqdm_dict["v_num"]
-        return tqdm_dict
 
     def forward(self, x):
         return self.model(x)
