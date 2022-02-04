@@ -1,0 +1,5 @@
+wdir: ../saved/exports
+outs:
+- md5: 2c7d15ad6fe1b9297cffd626d904732b
+  size: 45924468
+  path: model_best_checkpoint.pt

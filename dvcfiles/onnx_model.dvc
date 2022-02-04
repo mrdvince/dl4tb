@@ -1,0 +1,5 @@
+wdir: ../saved/exports
+outs:
+- md5: 4fa3972f3f3e9f8bc8631efaff9fc74e
+  size: 45830763
+  path: model_best_checkpoint.onnx
