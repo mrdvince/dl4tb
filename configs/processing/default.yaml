@@ -3,4 +3,4 @@ data_path: data
 batch_size: 32
 data_dir: data/tb_data
 zip_file: tb_data.zip
-project_root: /home/vinc3/Projects/dl4tb/
+exports_dir: saved/exports

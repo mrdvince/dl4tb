@@ -51,12 +51,13 @@ def main(cfg):
         verbose=True,
         monitor="valid/loss",
         mode="min",
+        save_on_train_epoch_end=True,
     )
     early_stopping_callback = pl.callbacks.EarlyStopping(
         monitor="valid/loss", patience=10, verbose=True, mode="min"
     )
     wandb_logger = WandbLogger(
-        project="dl4tb", save_dir=cfg.processing.project_root + "/saved/"
+        project="dl4tb", save_dir=hydra.utils.get_original_cwd() + "/saved/"
     )
 
     trainer = pl.Trainer(

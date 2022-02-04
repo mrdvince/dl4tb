@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Optional
 
 import gdown
+import hydra
 import pandas as pd
 import pytorch_lightning as pl
 import torch
@@ -34,7 +35,7 @@ class DataModule(pl.LightningDataModule):
         super(DataModule, self).__init__()
         self.transforms = transforms.Compose(
             [
-                transforms.RandomResizedCrop(224),
+                transforms.RandomResizedCrop(2),
                 transforms.ToTensor(),
                 transforms.Normalize(
                     mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
@@ -42,15 +43,13 @@ class DataModule(pl.LightningDataModule):
             ]
         )
         self.config = config
-        self.data_dir = (
-            self.config.processing.project_root + self.config.processing.data_dir
-        )
+        self.project_root = hydra.utils.get_original_cwd() + "/"
+        self.data_dir = self.project_root + self.config.processing.data_dir
 
     def prepare_data(self) -> None:
         filename = self.config.processing.zip_file
-        path = Path(
-            self.config.processing.project_root + self.config.processing.data_path
-        )
+        path = Path(self.project_root + self.config.processing.data_path)
+        print("##############", path)
         path.mkdir(parents=True, exist_ok=True)
         if not path.joinpath(filename).exists():
             gdown.download(
