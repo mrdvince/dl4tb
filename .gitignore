@@ -193,3 +193,5 @@ terraform.rc
 *.terraform.lock.hcl
 wandb/
 .dvc
+*.json
+*.local*
