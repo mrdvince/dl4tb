@@ -14,13 +14,18 @@ class TchPredictor:
             self.sess = ort.InferenceSession(model_path)
         else:
             self.model = torch.jit.load(model_path)
+        self.transform = transforms.Compose(
+            [transforms.Resize([224, 224]), transforms.ToTensor()]
+        )
 
-    def pt_predict(self, x):
-        preds = F.softmax(self.model(x), dim=1)
+    def pt_predict(self, img):
+        img_tensor = self.transform(img).unsqueeze_(0)
+        preds = F.softmax(self.model(img_tensor), dim=1)
         return self.labels[torch.argmax(preds).item()]
 
-    def onnx_predict(self, x):
-        ort_inputs = {self.sess.get_inputs()[0].name: self._to_numpy(x)}
+    def onnx_predict(self, img):
+        img_tensor = self.transform(img).unsqueeze_(0)
+        ort_inputs = {self.sess.get_inputs()[0].name: self._to_numpy(img_tensor)}
         ort_outs = self.sess.run(None, ort_inputs)
         preds = F.softmax(torch.from_numpy(ort_outs[0]), dim=1)
         return self.labels[torch.argmax(preds).item()]
@@ -35,14 +40,10 @@ class TchPredictor:
 
 def predict(img_path, model_path, onnx=True):
     img = Image.open(img_path).convert("RGB")
-    transform = transforms.Compose(
-        [transforms.Resize([224, 224]), transforms.ToTensor()]
-    )
-    img_tensor = transform(img).unsqueeze_(0)
     predictor = TchPredictor(model_path, onnx)
     if onnx:
-        return predictor.onnx_predict(img_tensor)
-    return predictor.pt_predict(img_tensor)
+        return predictor.onnx_predict(img)
+    return predictor.pt_predict(img)
 
 
 if __name__ == "__main__":
