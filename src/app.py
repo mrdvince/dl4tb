@@ -1,11 +1,12 @@
 from io import BytesIO
+import os
 from typing import Any
 
 from fastapi import FastAPI, File, UploadFile
 from PIL import Image
 from starlette.responses import RedirectResponse
 
-from inference import TchPredictor
+from .inference import TchPredictor
 
 app = FastAPI(title="dl4tb")
 
@@ -16,7 +17,9 @@ def redirect_to_docs() -> Any:
 
 
 # load the model
-predictor = TchPredictor("../saved/exports/model_best_checkpoint.onnx", onnx=True)
+predictor = TchPredictor(
+    os.path.join(os.getcwd(), "./saved/exports/model_best_checkpoint.onnx"), onnx=True
+)
 
 
 def read_image_from_upload(upload_file: UploadFile):

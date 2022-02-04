@@ -5,3 +5,6 @@ services:
     container_name: "inference_container"
     ports:
       - "8000:8000"
+  
+  prediction_api:
+    image: inference
