@@ -22,13 +22,7 @@ ENV AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID \
 
 
 RUN dvc init --no-scm
-# configuring remote server in dvc
 RUN dvc remote add -d storage s3://dvc-store123/trained_models
-# pulling the trained model
 RUN dvc pull dvcfiles/onnx_model.dvc
 
-EXPOSE 8000
-
 ENV PYTHONPATH=/app
-
-CMD ["uvicorn", "src.app:app", "--host", "0.0.0.0", "--port", "8000"]

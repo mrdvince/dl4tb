@@ -1,10 +1,10 @@
 version: "3.9"
+
 services:
-  prediction_api:
-    build: .
-    container_name: "inference_container"
+  api:
+    image: dltb-containr:latest
+    container_name: preds
+    command: uvicorn src.app:app --port=8000
     ports:
-      - "8000:8000"
-  
-  prediction_api:
-    image: inference
+      - 8080:8000
+    restart: always
