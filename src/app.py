@@ -1,14 +1,13 @@
+import os
 from cgitb import handler
 from io import BytesIO
-import os
 from typing import Any
 
 from fastapi import FastAPI, File, UploadFile
 from PIL import Image
 from starlette.responses import RedirectResponse
-from mangum import Mangum
-from .inference import TchPredictor
 
+from .inference import TchPredictor
 
 stage = os.environ.get("STAGE", None)
 openapi_prefix = f"/{stage}" if stage else "/"
@@ -40,6 +39,3 @@ def get_predictions(file: UploadFile = File(...)) -> Any:
     img = read_image_from_upload(file)
     pred = predictor.onnx_predict(img)
     return pred
-
-
-handler = Mangum(app)
