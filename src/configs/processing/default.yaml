@@ -1,3 +1,4 @@
+# @package _group_
 data_url: https://drive.google.com/uc?id=1KdpV3M27kV-_QOQOrAentfzZ2tew8YS-&
 data_path: data
 batch_size: 32

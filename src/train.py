@@ -62,20 +62,21 @@ def main(cfg):
         project="dl4tb", save_dir=hydra.utils.get_original_cwd() + "/saved/"
     )
     if cfg.training.device == "hpu":
-        from habana_frameworks.torch.utils.library_loader import \
-            load_habana_module  # type: ignore
+        from habana_frameworks.torch.utils.library_loader import (
+            load_habana_module,
+        )  # type: ignore
 
-        load_habana_module()
+        load_habana_module()  # type: ignore
         import habana_frameworks.torch.core  # type: ignore
         import habana_frameworks.torch.core.hccl  # type: ignore
 
-        device = torch.device("hpu")
         num_instances = cfg.training.num_instances
         parallel_hpus = [torch.device("hpu")] * num_instances
         hpus = True
+        torch.device("hpu")
 
     trainer = pl.Trainer(
-        hpus=parallel_hpus if hpus == "hpu" else None,
+        hpus=num_instances if hpus else None,
         gpus=(1 if torch.cuda.is_available() else 0),
         strategy=pl.plugins.DDPPlugin(
             parallel_devices=parallel_hpus,
