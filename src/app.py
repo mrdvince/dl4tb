@@ -39,7 +39,6 @@ def get_predictions(file: UploadFile = File(...)) -> Any:
     """
     img = read_image_from_upload(file)
     pred = predictor.onnx_predict(img)
-    print("For logs:", pred, "SCREAM")
     return pred
 
 
