@@ -62,18 +62,23 @@ def main(cfg):
         project="dl4tb", save_dir=hydra.utils.get_original_cwd() + "/saved/"
     )
     if cfg.training.device == "hpu":
-        from habana_frameworks.torch.utils.library_loader import (
-            load_habana_module,
-        )  # type: ignore
+        try:
+            from habana_frameworks.torch.utils.library_loader import (
+                load_habana_module,
+            )  # type: ignore
 
-        load_habana_module()  # type: ignore
-        import habana_frameworks.torch.core  # type: ignore
-        import habana_frameworks.torch.core.hccl  # type: ignore
+            load_habana_module()  # type: ignore
+            import habana_frameworks.torch.core  # type: ignore
+            import habana_frameworks.torch.core.hccl  # type: ignore
 
-        num_instances = cfg.training.num_instances
-        parallel_hpus = [torch.device("hpu")] * num_instances
-        hpus = True
-        torch.device("hpu")
+            num_instances = cfg.training.num_instances
+            parallel_hpus = [torch.device("hpu")] * num_instances
+            hpus = True
+            device = torch.device("hpu")
+
+        except ModuleNotFoundError:
+            device = torch.device("cpu")
+            hpus = False
 
     trainer = pl.Trainer(
         hpus=num_instances if hpus else None,
