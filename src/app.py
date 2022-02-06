@@ -18,8 +18,7 @@ app = FastAPI(title="dl4tb", openapi_prefix=openapi_prefix)
 
 @app.get("/", tags=["redirect"])
 def redirect_to_docs() -> Any:
-    # return RedirectResponse(url="redoc")
-    return {"redirect": "go to docs"}
+    return RedirectResponse(url="redoc")
 
 
 # load the model
@@ -43,4 +42,4 @@ def get_predictions(file: UploadFile = File(...)) -> Any:
     return pred
 
 
-handler = Mangum(app, spec_version=2)
+handler = Mangum(app)
