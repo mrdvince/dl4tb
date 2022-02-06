@@ -30,7 +30,7 @@ EXPOSE 8000
 # CMD ["uvicorn", "src.app:app", "--host", "0.0.0.0", "--port", "8000"]
 # CMD ["src.app.handler"]
 RUN python lambda_handler.py
-RUN chmod -R 0755 $MODEL_DIR
+RUN chmod -R 755 saved/
 CMD [ "lambda_handler.lambda_handler"]
 
 
