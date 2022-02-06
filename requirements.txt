@@ -54,6 +54,7 @@ importlib-metadata==4.10.1
 isort==5.10.1
 jmespath==0.10.0
 mailchecker==4.1.11
+mangum==0.12.3
 Markdown==3.3.6
 mccabe==0.6.1
 multidict==6.0.2
