@@ -2,9 +2,8 @@ version: "3.9"
 
 services:
   api:
-    image: dltb-containr:latest
+    image: dltb-containr:lambda
     container_name: preds
-    command: uvicorn src.app:app --port=8000
     ports:
-      - 8080:8000
+      - 8080:8080
     restart: always
