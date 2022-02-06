@@ -49,7 +49,6 @@ class DataModule(pl.LightningDataModule):
     def prepare_data(self) -> None:
         filename = self.config.processing.zip_file
         path = Path(self.project_root + self.config.processing.data_path)
-        print("##############", path)
         path.mkdir(parents=True, exist_ok=True)
         if not path.joinpath(filename).exists():
             gdown.download(

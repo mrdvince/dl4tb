@@ -10,7 +10,7 @@ from mangum import Mangum
 from .inference import TchPredictor
 
 
-stage = os.environ.get("STAGE", "deploy")
+stage = os.environ.get("STAGE", None)
 openapi_prefix = f"/{stage}" if stage else "/"
 
 app = FastAPI(title="dl4tb", openapi_prefix=openapi_prefix)
