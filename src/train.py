@@ -1,3 +1,5 @@
+import random
+
 import hydra
 import pandas as pd
 import pytorch_lightning as pl
@@ -59,14 +61,35 @@ def main(cfg):
     wandb_logger = WandbLogger(
         project="dl4tb", save_dir=hydra.utils.get_original_cwd() + "/saved/"
     )
+    if cfg.training.device == "hpu":
+        from habana_frameworks.torch.utils.library_loader import \
+            load_habana_module  # type: ignore
+
+        load_habana_module()
+        import habana_frameworks.torch.core  # type: ignore
+        import habana_frameworks.torch.core.hccl  # type: ignore
+
+        device = torch.device("hpu")
+        num_instances = cfg.training.num_instances
+        parallel_hpus = [torch.device("hpu")] * num_instances
+        hpus = True
 
     trainer = pl.Trainer(
+        hpus=parallel_hpus if hpus == "hpu" else None,
+        gpus=(1 if torch.cuda.is_available() else 0),
+        strategy=pl.plugins.DDPPlugin(
+            parallel_devices=parallel_hpus,
+            bucket_cap_mb=cfg.training.bucket_cap_mb,
+            gradient_as_bucket_view=True,
+            static_graph=True,
+        )
+        if num_instances > 1
+        else None,
         log_every_n_steps=cfg.training.log_every_n_steps,
         default_root_dir=cfg.training.save_dir,
-        gpus=(1 if torch.cuda.is_available() else 0),
         max_epochs=cfg.training.max_epochs,
         fast_dev_run=False,
-        logger=wandb_logger,  # pl.loggers.TensorBoardLogger("saved/logs/", name="dltb", version=1),
+        logger=wandb_logger,
         callbacks=[
             check_point,
             early_stopping_callback,
@@ -80,4 +103,9 @@ def main(cfg):
 
 
 if __name__ == "__main__":
+    seed = 69420
+    random.seed(seed)
+    torch.manual_seed(seed)
+    torch.backends.cudnn.deterministic = True
+    pl.seed_everything(seed)
     main()
