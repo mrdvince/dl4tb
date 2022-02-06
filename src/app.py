@@ -9,12 +9,17 @@ from starlette.responses import RedirectResponse
 from mangum import Mangum
 from .inference import TchPredictor
 
-app = FastAPI(title="dl4tb")
+
+stage = os.environ.get("STAGE", None)
+openapi_prefix = f"/{stage}" if stage else "/"
+
+app = FastAPI(title="dl4tb", openapi_prefix=openapi_prefix)
 
 
 @app.get("/", tags=["redirect"])
 def redirect_to_docs() -> Any:
-    return RedirectResponse(url="redoc")
+    # return RedirectResponse(url="redoc")
+    return {"redirect": "go to docs"}
 
 
 # load the model
@@ -38,4 +43,4 @@ def get_predictions(file: UploadFile = File(...)) -> Any:
     return pred
 
 
-handler = Mangum(app)
+handler = Mangum(app, spec_version=2)
