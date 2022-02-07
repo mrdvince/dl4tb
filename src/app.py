@@ -1,5 +1,4 @@
 import os
-from cgitb import handler
 from io import BytesIO
 from typing import Any
 

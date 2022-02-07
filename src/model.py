@@ -14,7 +14,7 @@ class Model(pl.LightningModule):
 
         self.save_hyperparameters()
 
-        self.model = torchvision.models.resnet18(pretrained=True)
+        self.model = torchvision.models.resnet50(pretrained=False)
         for param in self.model.parameters():
             param.requires_grad = False
 
@@ -82,7 +82,7 @@ class Model(pl.LightningModule):
         self.logger.experiment.log(
             {
                 "conf": wandb.plot.confusion_matrix(
-                    probs=logits.numpy(), y_true=labels.numpy()
+                    probs=logits.cpu().numpy(), y_true=labels.cpu().numpy()
                 )
             }
         )

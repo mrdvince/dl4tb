@@ -1,4 +1,6 @@
+import os
 import random
+from typing import Any, Dict, Optional
 
 import hydra
 import pandas as pd
@@ -6,9 +8,29 @@ import pytorch_lightning as pl
 import torch
 import wandb
 from pytorch_lightning.loggers import WandbLogger
+from pytorch_lightning.plugins.io.torch_plugin import TorchCheckpointIO
+from pytorch_lightning.utilities.cloud_io import get_filesystem
+from pytorch_lightning.utilities.types import _PATH
 
 from data import DataModule
 from model import Model
+
+
+class CustomTorchCheckpointIO(TorchCheckpointIO):
+    def __init__(self, model):
+        super().__init__()
+        self.model = model
+
+    def save_checkpoint(
+        self,
+        checkpoint: Dict[str, Any],
+        path: _PATH,
+        storage_options: Optional[Any] = None,
+    ) -> None:
+        fs = get_filesystem(path)
+        fs.makedirs(os.path.dirname(path), exist_ok=True)
+        # logging.info(self.model.state_dict())
+        # torch.save(self.model.state_dict(), path)
 
 
 class SamplesVisualisationLogger(pl.Callback):
@@ -40,6 +62,44 @@ class SamplesVisualisationLogger(pl.Callback):
                 "global_step": trainer.global_step,
             },
         )
+
+
+def permute_params(model, to_filters_last, lazy_mode):
+    with torch.no_grad():
+        for name, param in model.named_parameters():
+            if param.ndim == 4:
+                if to_filters_last:
+                    param.data = param.data.permute(
+                        (2, 3, 1, 0)
+                    )  # permute KCRS to RSCK
+                else:
+                    param.data = param.data.permute(
+                        (3, 2, 0, 1)
+                    )  # permute RSCK to KCRS
+    if lazy_mode:
+        import habana_frameworks.torch.core as htcore
+
+        htcore.mark_step()
+
+
+def permute_momentum(optimizer, to_filters_last, lazy_mode):
+    # Permute the momentum buffer before using for checkpoint
+    for group in optimizer.param_groups:
+        for p in group["params"]:
+            param_state = optimizer.state[p]
+            if "momentum_buffer" in param_state:
+                buf = param_state["momentum_buffer"]
+                if buf.ndim == 4:
+                    if to_filters_last:
+                        buf = buf.permute((2, 3, 1, 0))
+                    else:
+                        buf = buf.permute((3, 2, 0, 1))
+                    param_state["momentum_buffer"] = buf
+
+    if lazy_mode:
+        import habana_frameworks.torch.core as htcore
+
+        htcore.mark_step()
 
 
 @hydra.main(config_path="configs", config_name="config")
@@ -75,6 +135,9 @@ def main(cfg):
             parallel_hpus = [torch.device("hpu")] * num_instances
             hpus = True
             device = torch.device("hpu")
+            model.to(device)
+            permute_params(model, True, False)
+            # permute_momentum(model.configure_optimizers(), True, False)
 
         except ModuleNotFoundError:
             device = torch.device("cpu")
@@ -83,14 +146,16 @@ def main(cfg):
     trainer = pl.Trainer(
         hpus=num_instances if hpus else None,
         gpus=(1 if torch.cuda.is_available() else 0),
-        strategy=pl.plugins.DDPPlugin(
-            parallel_devices=parallel_hpus,
-            bucket_cap_mb=cfg.training.bucket_cap_mb,
-            gradient_as_bucket_view=True,
-            static_graph=True,
-        )
-        if num_instances > 1
-        else None,
+        precision=32,
+        accelerator=None,
+        # strategy=pl.plugins.DDPPlugin(
+        #     parallel_devices=parallel_hpus,
+        #     bucket_cap_mb=cfg.training.bucket_cap_mb,
+        #     gradient_as_bucket_view=True,
+        #     static_graph=True,
+        # )
+        # if num_instances > 1
+        # else None,
         log_every_n_steps=cfg.training.log_every_n_steps,
         default_root_dir=cfg.training.save_dir,
         max_epochs=cfg.training.max_epochs,
@@ -99,13 +164,18 @@ def main(cfg):
         callbacks=[
             check_point,
             early_stopping_callback,
-            SamplesVisualisationLogger(data),
+            # SamplesVisualisationLogger(data),
         ],
         deterministic=cfg.training.deterministic,
         limit_train_batches=cfg.training.limit_train_batches,
         limit_val_batches=cfg.training.limit_val_batches,
+        plugins=[CustomTorchCheckpointIO(model)],
     )
+    # data.setup()
     trainer.fit(model, data)
+    trainer.save_checkpoint(cfg.training.save_dir + "/final_checkpoint.ckpt")
+    # trainer.fit(model, train_dataloaders=data.train_dataloader(),
+    #   val_dataloaders=data.val_dataloader())
 
 
 if __name__ == "__main__":
@@ -114,4 +184,5 @@ if __name__ == "__main__":
     torch.manual_seed(seed)
     torch.backends.cudnn.deterministic = True
     pl.seed_everything(seed)
+    # wandb.init(project="dl4tb", entity="droid")
     main()
