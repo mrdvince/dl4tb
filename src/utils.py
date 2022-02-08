@@ -1,8 +1,8 @@
 import shutil
 from pathlib import Path
 
-import pandas as pd
 import opendatasets as od
+import pandas as pd
 
 
 def get_pandas_entry(id, path="data/train.csv"):
@@ -37,7 +37,7 @@ def verify_images_labels(name):
 def download(dataset_url, data_dir):
     od.download(dataset_url, data_dir)
 
-    
+
 if __name__ == "__main__":
-    copy_images_to_folder("data/tb_data/train")
+    # copy_images_to_folder("data/tb_data/train")
     download("https://www.kaggle.com/kmader/pulmonary-chest-xray-abnormalities", "data")
