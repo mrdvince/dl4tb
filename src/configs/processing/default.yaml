@@ -1,5 +1,0 @@
-data_url: https://drive.google.com/uc?id=1KdpV3M27kV-_QOQOrAentfzZ2tew8YS-&
-batch_size: 64
-data_dir: data
-zip_file: tb_data.zip
-exports_dir: saved/exports

@@ -1,9 +1,0 @@
-max_epochs: 10
-log_every_n_steps: 10
-limit_train_batches: 1.0
-limit_val_batches: 1.0
-save_dir: saved
-deterministic: True
-device: hpu
-num_instances: 1
-bucket_cap_mb: 125
