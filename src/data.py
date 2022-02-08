@@ -8,7 +8,7 @@ import pytorch_lightning as pl
 from torch.utils.data import DataLoader, random_split
 from torchvision import datasets, transforms
 
-from process import copy_images_to_folder
+from src.utils import copy_images_to_folder
 
 
 class DataModule(pl.LightningDataModule):
