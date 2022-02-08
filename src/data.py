@@ -1,33 +1,14 @@
-import os
 import zipfile
 from pathlib import Path
 from typing import Optional
 
 import gdown
 import hydra
-import pandas as pd
 import pytorch_lightning as pl
-import torch
-from PIL import Image
 from torch.utils.data import DataLoader, random_split
-from torchvision import transforms
+from torchvision import datasets, transforms
 
-
-class Dataset(torch.utils.data.Dataset):
-    def __init__(self, data_dir, trsfm):
-        self.imgs = [path for path in Path(data_dir).rglob("*.png")]
-        self.train = pd.read_csv(os.path.join(data_dir, "../..", "train.csv"))
-        self.trsfm = trsfm
-
-    def __len__(self):
-        return len(self.imgs)
-
-    def __getitem__(self, idx):
-        img = Image.open(self.imgs[idx]).convert("RGB")
-        id = self.imgs[idx].name.split(".")[0]  # removesuffix(".png")
-        label = int(self.train[self.train["ID"] == id]["LABEL"])
-        img = self.trsfm(img)
-        return img, label
+from process import copy_images_to_folder
 
 
 class DataModule(pl.LightningDataModule):
@@ -44,11 +25,11 @@ class DataModule(pl.LightningDataModule):
         )
         self.config = config
         self.project_root = hydra.utils.get_original_cwd() + "/"
-        self.data_dir = self.project_root + self.config.processing.data_dir
+        self.data_dir = self.project_root + self.config.processing.data_dir + "/"
 
     def prepare_data(self) -> None:
         filename = self.config.processing.zip_file
-        path = Path(self.project_root + self.config.processing.data_path)
+        path = Path(self.project_root + "data/")
         path.mkdir(parents=True, exist_ok=True)
         if not path.joinpath(filename).exists():
             gdown.download(
@@ -59,12 +40,13 @@ class DataModule(pl.LightningDataModule):
             # extract the zip file
             with zipfile.ZipFile(str(path / filename), "r") as zip_ref:
                 zip_ref.extractall(path / filename.replace(".zip", ""))
+            copy_images_to_folder("data/tb_data/train")
 
     def setup(self, stage: Optional[str] = None) -> None:
         # load data
         if stage in (None, "fit"):
-            self.train_dataset = Dataset(
-                data_dir=f"{self.data_dir}/train/", trsfm=self.transforms
+            self.train_dataset = datasets.ImageFolder(
+                self.data_dir + "proc_tb", self.transforms
             )
 
             train_samples = int(len(self.train_dataset) * 0.8)
@@ -74,8 +56,9 @@ class DataModule(pl.LightningDataModule):
                 [train_samples, len(self.train_dataset) - train_samples],
             )
         if stage in (None, "test"):
-            self.test_data = Dataset(
-                data_dir=f"{self.data_dir}/test/", trsfm=transforms.ToTensor()
+            self.test_data = datasets.ImageFolder(
+                self.project_root + self.data_dir + "/test/",
+                transform=transforms.ToTensor(),
             )
 
     def train_dataloader(self):
@@ -84,6 +67,7 @@ class DataModule(pl.LightningDataModule):
             batch_size=32,
             shuffle=True,
             num_workers=6,
+            pin_memory=True,
         )
 
     def val_dataloader(self):
@@ -92,6 +76,7 @@ class DataModule(pl.LightningDataModule):
             batch_size=32,
             shuffle=False,
             num_workers=6,
+            pin_memory=True,
         )
 
     def test_dataloader(self):

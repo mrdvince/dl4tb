@@ -1,6 +1,4 @@
-import os
 import random
-from typing import Any, Dict, Optional
 
 import hydra
 import pandas as pd
@@ -8,29 +6,9 @@ import pytorch_lightning as pl
 import torch
 import wandb
 from pytorch_lightning.loggers import WandbLogger
-from pytorch_lightning.plugins.io.torch_plugin import TorchCheckpointIO
-from pytorch_lightning.utilities.cloud_io import get_filesystem
-from pytorch_lightning.utilities.types import _PATH
 
 from data import DataModule
 from model import Model
-
-
-class CustomTorchCheckpointIO(TorchCheckpointIO):
-    def __init__(self, model):
-        super().__init__()
-        self.model = model
-
-    def save_checkpoint(
-        self,
-        checkpoint: Dict[str, Any],
-        path: _PATH,
-        storage_options: Optional[Any] = None,
-    ) -> None:
-        fs = get_filesystem(path)
-        fs.makedirs(os.path.dirname(path), exist_ok=True)
-        # logging.info(self.model.state_dict())
-        # torch.save(self.model.state_dict(), path)
 
 
 class SamplesVisualisationLogger(pl.Callback):
@@ -135,19 +113,17 @@ def main(cfg):
             parallel_hpus = [torch.device("hpu")] * num_instances
             hpus = True
             device = torch.device("hpu")
-            model.to(device)
-            permute_params(model, True, False)
-            # permute_momentum(model.configure_optimizers(), True, False)
+            import habana_frameworks.torch.core as htcore
+
+            htcore.mark_step()
 
         except ModuleNotFoundError:
             device = torch.device("cpu")
             hpus = False
 
     trainer = pl.Trainer(
-        hpus=num_instances if hpus else None,
+        # hpus=num_instances if hpus else None,
         gpus=(1 if torch.cuda.is_available() else 0),
-        precision=32,
-        accelerator=None,
         # strategy=pl.plugins.DDPPlugin(
         #     parallel_devices=parallel_hpus,
         #     bucket_cap_mb=cfg.training.bucket_cap_mb,
@@ -164,18 +140,13 @@ def main(cfg):
         callbacks=[
             check_point,
             early_stopping_callback,
-            # SamplesVisualisationLogger(data),
+            SamplesVisualisationLogger(data),
         ],
         deterministic=cfg.training.deterministic,
         limit_train_batches=cfg.training.limit_train_batches,
         limit_val_batches=cfg.training.limit_val_batches,
-        plugins=[CustomTorchCheckpointIO(model)],
     )
-    # data.setup()
     trainer.fit(model, data)
-    trainer.save_checkpoint(cfg.training.save_dir + "/final_checkpoint.ckpt")
-    # trainer.fit(model, train_dataloaders=data.train_dataloader(),
-    #   val_dataloaders=data.val_dataloader())
 
 
 if __name__ == "__main__":
@@ -184,5 +155,4 @@ if __name__ == "__main__":
     torch.manual_seed(seed)
     torch.backends.cudnn.deterministic = True
     pl.seed_everything(seed)
-    # wandb.init(project="dl4tb", entity="droid")
     main()
