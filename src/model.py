@@ -6,6 +6,26 @@ import torchvision
 import wandb
 
 
+class UNETModel(pl.LightningModule):
+    def __init__(self):
+        super(UNETModel, self).__init__()
+
+    def forward(self, x):
+        ...
+
+    def training_step(self, batch, batch_idx):
+        ...
+
+    def validation_step(self, batch, batch_idx):
+        ...
+
+    def validation_epoch_end(self, outputs):
+        ...
+
+    def configure_optimizers(self):
+        return torch.optim.Adam(self.parameters(), lr=self.lr)
+
+
 class Model(pl.LightningModule):
     def __init__(self, num_classes, lr=0.001):
         super(Model, self).__init__()
