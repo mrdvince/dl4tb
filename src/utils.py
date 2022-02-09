@@ -1,8 +1,12 @@
+import os
 import shutil
+from glob import glob
 from pathlib import Path
 
 import opendatasets as od
 import pandas as pd
+from PIL import Image, ImageChops
+from tqdm.auto import tqdm
 
 
 def get_pandas_entry(id, path="data/train.csv"):
@@ -38,6 +42,34 @@ def download(dataset_url, data_dir):
     od.download(dataset_url, data_dir)
 
 
+def copy_cxr_merge_masks(raw_image_dir, cxr_dir, mask_dir):
+    image_paths = glob(os.path.join(raw_image_dir, "*.png"))
+    # fmt: off
+    images_with_masks_paths = [
+        (image_path,os.path.join("/".join(image_path.split("/")[:-2]),"ManualMask","leftMask", os.path.basename(image_path)),
+         os.path.join("/".join(image_path.split("/")[:-2]),"ManualMask","rightMask",os.path.basename(image_path))) for image_path in image_paths
+        ]
+    # fmt: on
+    mask_path = Path(mask_dir)
+    mask_path.mkdir(exist_ok=True, parents=True)
+
+    cxr_path = Path(cxr_dir)
+    cxr_path.mkdir(exist_ok=True, parents=True)
+
+    for cxr, left, right in tqdm(images_with_masks_paths):
+        left = Image.open(left).convert("L")
+        right = Image.open(right).convert("L")
+        seg_img = ImageChops.add(left, right)
+        filename = Path(cxr).name
+        shutil.copy(cxr, cxr_path / filename)
+        seg_img.save(mask_path / filename)
+
+
 if __name__ == "__main__":
     # copy_images_to_folder("data/tb_data/train")
-    download("https://www.kaggle.com/kmader/pulmonary-chest-xray-abnormalities", "data")
+    # download("https://www.kaggle.com/kmader/pulmonary-chest-xray-abnormalities", "data")
+    copy_cxr_merge_masks(
+        raw_image_dir="data/pulmonary-chest-xray-abnormalities/Montgomery/MontgomerySet/CXR_png",
+        cxr_dir="data/proc_seg/cxr_pngs",
+        mask_dir="data/proc_seg/mask_pngs",
+    )
