@@ -5,92 +5,61 @@ from pathlib import Path
 from typing import Optional
 
 import albumentations as A
-import cv2
 import gdown
 import hydra
 import numpy as np
 import pytorch_lightning as pl
-import torch
-from skimage.io import imread as imread
-from skimage.transform import resize as resize
-from torch.utils.data import DataLoader, TensorDataset, random_split
+from albumentations.pytorch.transforms import ToTensorV2
+from PIL import Image
+from torch.utils.data import DataLoader, random_split
 from torchvision import datasets, transforms
-from tqdm import tqdm
 
 from utils import copy_images_to_folder, download
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
 
 
-class PROCData:
-    def __init__(self):
-        self.transform = A.Compose(
-            [
-                A.HorizontalFlip(p=0.5),
-                A.ShiftScaleRotate(rotate_limit=15, always_apply=True),
-            ]
-        )
-        image_paths = glob(
-            os.path.join(
-                "data/pulmonary-chest-xray-abnormalities/Montgomery/MontgomerySet/CXR_png",
-                "*.png",
-            )
-        )
-        # fmt: off
-        self.images_with_masks_paths = [
-            (image_path,os.path.join("/".join(image_path.split("/")[:-2]),"ManualMask","leftMask", os.path.basename(image_path)),
-                os.path.join("/".join(image_path.split("/")[:-2]),"ManualMask","rightMask",os.path.basename(image_path))) for image_path in image_paths
-            ]
-        # fmt: on
-        self.OUT_DIM = (512, 512)
+class UNETDataset:
+    def __init__(self, cxr_dir, mask_dir, transform=None):
+        self.cxr_images = glob(os.path.join(cxr_dir, "*.png"))
+        self.mask_images = glob(os.path.join(mask_dir, "*.png"))
+        self.transform = transform
 
-    def process(self):
-        images, masks = [], []
-        for mri, left_lung, right_lung in tqdm(
-            self.images_with_masks_paths, position=0, leave=True
-        ):
-            images.append(self.image_from_path(mri))
-            masks.append(self.mask_from_paths(left_lung, right_lung))
+    def __len__(self):
+        return len(self.cxr_images)
 
-        transformed_images, transformed_masks = [], []
+    def __getitem__(self, idx):
+        cxr_png_path = Path(self.cxr_images[idx])
+        mask_png_path = Path(self.mask_images[idx])
+        img = np.array(Image.open(cxr_png_path).convert("RGB"))
+        mask = np.array(Image.open(mask_png_path).convert("L"), dtype=np.float32)
+        mask = mask / 255
 
-        for image, mask in zip(images, masks):
-            sample = {"image": image.copy(), "mask": mask.copy()}
-            out = self.transform(**sample)
-            transformed_images.append(out["image"])
-            transformed_masks.append(out["mask"])
+        if self.transform:
+            augs = self.transform(image=img, mask=mask)
+            img = augs["image"]
+            mask = augs["mask"]
 
-        image_dataset = images.copy() + transformed_images
-        mask_dataset = masks.copy() + transformed_masks
-
-        x_train, x_val, y_train, y_val = train_test_split(
-            image_dataset, mask_dataset, test_size=0.2
-        )
-        scaler = StandardScaler()
-        x_train = scaler.fit_transform(
-            np.array(x_train).reshape(-1, 512 * 512)
-        ).reshape(-1, 512, 512)
-        x_val = scaler.transform(np.array(x_val).reshape(-1, 512 * 512)).reshape(
-            -1, 512, 512
-        )
-        return x_train, y_train, x_val, y_val
-
-    def image_from_path(self, path):
-        img = resize(imread(path), self.OUT_DIM, mode="constant")
-        return img
-
-    def mask_from_paths(self, path1, path2):
-        img = resize(
-            cv2.bitwise_or(imread(path1), imread(path2)), self.OUT_DIM, mode="constant"
-        )
-        return img
+        return img, mask
 
 
 class UNETDataModule(pl.LightningDataModule):
     def __init__(self, config=None):
         super(UNETDataModule, self).__init__()
         self.project_root = os.getcwd() + "/"  # hydra.utils.get_original_cwd() + "/"
-        print(self.project_root)
+        dims = (256, 256)
+        self.transforms = A.Compose(
+            [
+                A.Resize(height=dims[0], width=dims[1], always_apply=True),
+                A.Rotate(limit=35, p=1.0),
+                A.HorizontalFlip(p=0.5),
+                A.VerticalFlip(p=0.1),
+                A.Normalize(
+                    mean=[0.0, 0.0, 0.0],
+                    std=[1.0, 1.0, 1.0],
+                    max_pixel_value=255.0,
+                ),
+                ToTensorV2(),
+            ],
+        )
 
     def prepare_data(self):
         if not os.path.exists(
@@ -101,16 +70,23 @@ class UNETDataModule(pl.LightningDataModule):
                 self.project_root + "data",
             )
 
-    def setup(self, stage: Optional[str] = None):
-        x_train, y_train, x_val, y_val = PROCData().process()
-        self.train_ds = TensorDataset(torch.tensor(x_train), torch.tensor(y_train))
-        self.val_ds = TensorDataset(torch.tensor(x_val), torch.tensor(y_val))
+    def setup(self, stage=None):
+        dataset = UNETDataset(
+            cxr_dir=self.project_root + "data/proc_seg/cxr_pngs",
+            mask_dir=self.project_root + "data/proc_seg/mask_pngs",
+            transform=self.transforms,
+        )
+        train_samples = int(len(dataset) * 0.8)
+        self.train_data, self.val_data = random_split(
+            dataset,
+            [train_samples, len(dataset) - train_samples],
+        )
 
     def train_dataloader(self):
-        return DataLoader(self.train_ds, batch_size=32, shuffle=True, pin_memory=True)
+        return DataLoader(self.train_data, batch_size=32, shuffle=True, pin_memory=True)
 
     def val_dataloader(self):
-        return DataLoader(self.val_ds, batch_size=32, shuffle=False)
+        return DataLoader(self.val_data, batch_size=32, shuffle=False)
 
 
 class ClassifierDataModule(pl.LightningDataModule):
