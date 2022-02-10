@@ -10,7 +10,7 @@ from unet import UNET
 
 
 class Dice(torchmetrics.Metric):
-    def __init__(self, len_loader, preds, mask, eps=1e-7):
+    def __init__(self, len_loader, preds, mask, eps=1e-8):
         super(Dice, self).__init__()
         self.len_loader = len_loader
         self.preds = preds
@@ -34,8 +34,6 @@ class UNETModel(pl.LightningModule):
         self.save_hyperparameters()
         self.model = UNET(in_channels=3, out_channels=1)
         self.criterion = nn.BCEWithLogitsLoss()
-        self.train_accuracy_metric = torchmetrics.Accuracy()
-        self.val_accuracy_metric = torchmetrics.Accuracy()
 
     def forward(self, x):
         self.model(x)
@@ -56,8 +54,8 @@ class UNETModel(pl.LightningModule):
         torchvision.utils.save_image(pred, "pred.png")
         torchvision.utils.save_image(mask, "mask.png")
         # # Metrics
-        valid_acc = self.val_accuracy_metric(preds, mask)
-        dice_score = Dice(len(self.val_dataloader), preds, mask)
+        self.dice_score = Dice(16, preds, mask)
+        dice_score = self.dice_score.compute()
         # Logging metrics
 
         self.log("valid/loss", loss, prog_bar=True, on_step=True)
