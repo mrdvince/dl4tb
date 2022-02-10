@@ -1,3 +1,4 @@
+import logging
 import pytorch_lightning as pl
 import torch
 import torch.nn as nn
@@ -8,6 +9,24 @@ import wandb
 from unet import UNET
 
 
+class Dice(torchmetrics.Metric):
+    def __init__(self, len_loader, preds, mask, eps=1e-7):
+        super(Dice, self).__init__()
+        self.len_loader = len_loader
+        self.preds = preds
+        self.mask = mask
+        self.epsilon = eps
+        self.add_state("dice_score", default=torch.tensor(0), dist_reduce_fx="sum")
+
+    def update(self):
+        self.dice_score += (2 * (self.preds * self.mask).sum()) / (
+            (self.preds + self.maask).sum() + self.epsilon
+        )
+
+    def compute(self):
+        return self.dice_score / self.len_loader
+
+
 class UNETModel(pl.LightningModule):
     def __init__(self, lr):
         super(UNETModel, self).__init__()
@@ -15,6 +34,8 @@ class UNETModel(pl.LightningModule):
         self.save_hyperparameters()
         self.model = UNET(in_channels=3, out_channels=1)
         self.criterion = nn.BCEWithLogitsLoss()
+        self.train_accuracy_metric = torchmetrics.Accuracy()
+        self.val_accuracy_metric = torchmetrics.Accuracy()
 
     def forward(self, x):
         self.model(x)
@@ -22,20 +43,27 @@ class UNETModel(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         image, mask = batch
         logits = self.model(image)
-        loss = self.criterion(logits, mask)
+        loss = self.criterion(logits, mask.unsqueeze(1))
         return {"loss": loss}
 
     def validation_step(self, batch, batch_idx):
         image, mask = batch
+        mask = mask.unsqueeze(1)
         logits = self.model(image)
         loss = self.criterion(logits, mask)
         preds = torch.sigmoid(logits)
         pred = (preds > 0.5).float()
         torchvision.utils.save_image(pred, "pred.png")
-        return {"val_loss": loss}
+        torchvision.utils.save_image(mask, "mask.png")
+        # # Metrics
+        valid_acc = self.val_accuracy_metric(preds, mask)
+        dice_score = Dice(len(self.val_dataloader), preds, mask)
+        # Logging metrics
 
-    def validation_epoch_end(self, outputs):
-        torchvision.utils.save_image(outputs[0]["val_loss"].detach(), "val_loss.png")
+        self.log("valid/loss", loss, prog_bar=True, on_step=True)
+        self.log("valid/dice_score", dice_score, prog_bar=True, on_step=True)
+
+        return {"labels": mask, "logits": preds}
 
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters(), lr=self.lr)

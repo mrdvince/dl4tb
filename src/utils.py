@@ -66,8 +66,8 @@ def copy_cxr_merge_masks(raw_image_dir, cxr_dir, mask_dir):
 
 
 if __name__ == "__main__":
-    # copy_images_to_folder("data/tb_data/train")
-    # download("https://www.kaggle.com/kmader/pulmonary-chest-xray-abnormalities", "data")
+    copy_images_to_folder("data/tb_data/train")
+    download("https://www.kaggle.com/kmader/pulmonary-chest-xray-abnormalities", "data")
     copy_cxr_merge_masks(
         raw_image_dir="data/pulmonary-chest-xray-abnormalities/Montgomery/MontgomerySet/CXR_png",
         cxr_dir="data/proc_seg/cxr_pngs",

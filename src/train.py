@@ -123,12 +123,14 @@ def main(cfg):
             device = torch.device("cpu")
             hpus = False
     trainer = pl.Trainer(
-        max_epochs=1,
-        fast_dev_run=True,
+        gpus=1,
+        max_epochs=10,
+        fast_dev_run=False,
         default_root_dir=cfg.training.save_dir,
         deterministic=cfg.training.deterministic,
         limit_train_batches=cfg.training.limit_train_batches,
         limit_val_batches=cfg.training.limit_val_batches,
+        log_every_n_steps=1,
     )
 
     trainer.fit(unet, unet_data)

@@ -14,7 +14,7 @@ from PIL import Image
 from torch.utils.data import DataLoader, random_split
 from torchvision import datasets, transforms
 
-from utils import copy_images_to_folder, download
+from utils import copy_cxr_merge_masks, copy_images_to_folder, download
 
 
 class UNETDataset:
@@ -31,7 +31,7 @@ class UNETDataset:
         mask_png_path = Path(self.mask_images[idx])
         img = np.array(Image.open(cxr_png_path).convert("RGB"))
         mask = np.array(Image.open(mask_png_path).convert("L"), dtype=np.float32)
-        mask = mask / 255
+        mask[mask == 255.0] = 1.0
 
         if self.transform:
             augs = self.transform(image=img, mask=mask)
@@ -45,7 +45,7 @@ class UNETDataModule(pl.LightningDataModule):
     def __init__(self, config=None):
         super(UNETDataModule, self).__init__()
         self.project_root = hydra.utils.get_original_cwd() + "/"  # os.getcwd() + "/"
-        dims = (2, 2)
+        dims = (256, 256)
         self.transforms = A.Compose(
             [
                 A.Resize(height=dims[0], width=dims[1], always_apply=True),
@@ -60,6 +60,8 @@ class UNETDataModule(pl.LightningDataModule):
                 ToTensorV2(),
             ],
         )
+        self.cxr_dir = self.project_root + "data/proc_seg/cxr_pngs"
+        self.mask_dir = self.project_root + "data/proc_seg/mask_pngs"
 
     def prepare_data(self):
         if not os.path.exists(
@@ -69,23 +71,26 @@ class UNETDataModule(pl.LightningDataModule):
                 "https://www.kaggle.com/kmader/pulmonary-chest-xray-abnormalities",
                 self.project_root + "data",
             )
+            copy_cxr_merge_masks(
+                raw_image_dir=self.project_root
+                + "data/pulmonary-chest-xray-abnormalities/Montgomery/MontgomerySet/CXR_png",
+                cxr_dir=self.cxr_dir,
+                mask_dir=self.mask_dir,
+            )
 
     def setup(self, stage=None):
         dataset = UNETDataset(
-            cxr_dir=self.project_root + "data/proc_seg/cxr_pngs",
-            mask_dir=self.project_root + "data/proc_seg/mask_pngs",
-            transform=self.transforms,
+            cxr_dir=self.cxr_dir, mask_dir=self.mask_dir, transform=self.transforms
         )
         train_samples = int(len(dataset) * 0.8)
         self.train_data, self.val_data = random_split(
-            dataset,
-            [train_samples, len(dataset) - train_samples],
+            dataset, [train_samples, len(dataset) - train_samples]
         )
 
     def train_dataloader(self):
         return DataLoader(
             self.train_data,
-            batch_size=32,
+            batch_size=16,
             shuffle=True,
             pin_memory=True,
             num_workers=os.cpu_count(),
@@ -93,7 +98,7 @@ class UNETDataModule(pl.LightningDataModule):
 
     def val_dataloader(self):
         return DataLoader(
-            self.val_data, batch_size=32, shuffle=False, num_workers=os.cpu_count()
+            self.val_data, batch_size=16, shuffle=False, num_workers=os.cpu_count()
         )
 
 
