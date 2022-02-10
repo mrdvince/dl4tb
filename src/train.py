@@ -124,13 +124,14 @@ def main(cfg):
             hpus = False
     trainer = pl.Trainer(
         gpus=1,
-        max_epochs=10,
+        max_epochs=20,
         fast_dev_run=False,
         default_root_dir=cfg.training.save_dir,
         deterministic=cfg.training.deterministic,
         limit_train_batches=cfg.training.limit_train_batches,
         limit_val_batches=cfg.training.limit_val_batches,
         log_every_n_steps=1,
+        callbacks=[check_point],
     )
 
     trainer.fit(unet, unet_data)

@@ -55,13 +55,16 @@ class UNETModel(pl.LightningModule):
         torchvision.utils.save_image(mask, "mask.png")
         # # Metrics
         self.dice_score = Dice(16, preds, mask)
-        dice_score = self.dice_score.compute()
         # Logging metrics
 
         self.log("valid/loss", loss, prog_bar=True, on_step=True)
-        self.log("valid/dice_score", dice_score, prog_bar=True, on_step=True)
+        # self.log("valid/dice_score", dice_score, prog_bar=True, on_step=True)
+        return {"mask": mask, "preds": preds}
 
-        return {"labels": mask, "logits": preds}
+    def validation_epoch_end(self, outputs):
+        preds = torch.cat([x["preds"] for x in outputs])
+        mask = torch.cat([x["mask"] for x in outputs])
+        torchvision.utils.save_image(preds, "epoch_preds.png")
 
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters(), lr=self.lr)
