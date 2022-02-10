@@ -5,22 +5,37 @@ import torchmetrics
 import torchvision
 import wandb
 
+from unet import UNET
+
 
 class UNETModel(pl.LightningModule):
-    def __init__(self):
+    def __init__(self, lr):
         super(UNETModel, self).__init__()
+        self.lr = lr
+        self.save_hyperparameters()
+        self.model = UNET(in_channels=3, out_channels=1)
+        self.criterion = nn.BCEWithLogitsLoss()
 
     def forward(self, x):
-        ...
+        self.model(x)
 
     def training_step(self, batch, batch_idx):
-        ...
+        image, mask = batch
+        logits = self.model(image)
+        loss = self.criterion(logits, mask)
+        return {"loss": loss}
 
     def validation_step(self, batch, batch_idx):
-        ...
+        image, mask = batch
+        logits = self.model(image)
+        loss = self.criterion(logits, mask)
+        preds = torch.sigmoid(logits)
+        pred = (preds > 0.5).float()
+        torchvision.utils.save_image(pred, "pred.png")
+        return {"val_loss": loss}
 
     def validation_epoch_end(self, outputs):
-        ...
+        torchvision.utils.save_image(outputs[0]["val_loss"].detach(), "val_loss.png")
 
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters(), lr=self.lr)

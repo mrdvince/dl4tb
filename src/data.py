@@ -44,8 +44,8 @@ class UNETDataset:
 class UNETDataModule(pl.LightningDataModule):
     def __init__(self, config=None):
         super(UNETDataModule, self).__init__()
-        self.project_root = os.getcwd() + "/"  # hydra.utils.get_original_cwd() + "/"
-        dims = (256, 256)
+        self.project_root = hydra.utils.get_original_cwd() + "/"  # os.getcwd() + "/"
+        dims = (2, 2)
         self.transforms = A.Compose(
             [
                 A.Resize(height=dims[0], width=dims[1], always_apply=True),
@@ -83,10 +83,18 @@ class UNETDataModule(pl.LightningDataModule):
         )
 
     def train_dataloader(self):
-        return DataLoader(self.train_data, batch_size=32, shuffle=True, pin_memory=True)
+        return DataLoader(
+            self.train_data,
+            batch_size=32,
+            shuffle=True,
+            pin_memory=True,
+            num_workers=os.cpu_count(),
+        )
 
     def val_dataloader(self):
-        return DataLoader(self.val_data, batch_size=32, shuffle=False)
+        return DataLoader(
+            self.val_data, batch_size=32, shuffle=False, num_workers=os.cpu_count()
+        )
 
 
 class ClassifierDataModule(pl.LightningDataModule):

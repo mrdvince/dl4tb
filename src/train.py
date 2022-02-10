@@ -7,8 +7,8 @@ import torch
 import wandb
 from pytorch_lightning.loggers import WandbLogger
 
-from data import DataModule
-from model import Model
+from data import ClassifierDataModule, UNETDataModule
+from model import Model, UNETModel
 
 
 class SamplesVisualisationLogger(pl.Callback):
@@ -82,8 +82,10 @@ def permute_momentum(optimizer, to_filters_last, lazy_mode):
 
 @hydra.main(config_path="configs", config_name="config")
 def main(cfg):
-    data: pl.LightningDataModule = DataModule(config=cfg)
+    data: pl.LightningDataModule = ClassifierDataModule(config=cfg)
     model = Model(num_classes=cfg.model.num_classes)
+    unet = UNETModel(lr=cfg.model.lr)
+    unet_data = UNETDataModule()
     check_point = pl.callbacks.ModelCheckpoint(
         dirpath="checkpoints",
         filename="model_checkpoint_{epoch}",
@@ -120,33 +122,42 @@ def main(cfg):
         except ModuleNotFoundError:
             device = torch.device("cpu")
             hpus = False
-
     trainer = pl.Trainer(
-        # hpus=num_instances if hpus else None,
-        gpus=(1 if torch.cuda.is_available() else 0),
-        # strategy=pl.plugins.DDPPlugin(
-        #     parallel_devices=parallel_hpus,
-        #     bucket_cap_mb=cfg.training.bucket_cap_mb,
-        #     gradient_as_bucket_view=True,
-        #     static_graph=True,
-        # )
-        # if num_instances > 1
-        # else None,
-        log_every_n_steps=cfg.training.log_every_n_steps,
+        max_epochs=1,
+        fast_dev_run=True,
         default_root_dir=cfg.training.save_dir,
-        max_epochs=cfg.training.max_epochs,
-        fast_dev_run=False,
-        logger=wandb_logger,
-        callbacks=[
-            check_point,
-            early_stopping_callback,
-            SamplesVisualisationLogger(data),
-        ],
         deterministic=cfg.training.deterministic,
         limit_train_batches=cfg.training.limit_train_batches,
         limit_val_batches=cfg.training.limit_val_batches,
     )
-    trainer.fit(model, data)
+
+    trainer.fit(unet, unet_data)
+    # trainer = pl.Trainer(
+    #     # hpus=num_instances if hpus else None,
+    #     gpus=(1 if torch.cuda.is_available() else 0),
+    #     # strategy=pl.plugins.DDPPlugin(
+    #     #     parallel_devices=parallel_hpus,
+    #     #     bucket_cap_mb=cfg.training.bucket_cap_mb,
+    #     #     gradient_as_bucket_view=True,
+    #     #     static_graph=True,
+    #     # )
+    #     # if num_instances > 1
+    #     # else None,
+    #     log_every_n_steps=cfg.training.log_every_n_steps,
+    #     default_root_dir=cfg.training.save_dir,
+    #     max_epochs=cfg.training.max_epochs,
+    #     fast_dev_run=False,
+    #     logger=wandb_logger,
+    #     callbacks=[
+    #         check_point,
+    #         early_stopping_callback,
+    #         SamplesVisualisationLogger(data),
+    #     ],
+    #     deterministic=cfg.training.deterministic,
+    #     limit_train_batches=cfg.training.limit_train_batches,
+    #     limit_val_batches=cfg.training.limit_val_batches,
+    # )
+    # trainer.fit(model, data)
 
 
 if __name__ == "__main__":
