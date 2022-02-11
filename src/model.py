@@ -7,20 +7,7 @@ import torchvision
 import wandb
 
 from unet import UNET
-
-
-class Dice(torchmetrics.Metric):
-    def __init__(self):
-        super(Dice, self).__init__()
-        self.add_state("dice", default=torch.tensor(0))
-
-    def update(self, preds, target, eps=1e-8):
-        self.len_loader = len(preds)
-        self.dice += 2.0 * (preds * target).sum() / (preds + target).sum() + eps
-
-    def compute(self):
-        return self.dice / self.len_loader
-
+from PIL import Image
 
 class UNETModel(pl.LightningModule):
     def __init__(self, lr):
@@ -29,9 +16,7 @@ class UNETModel(pl.LightningModule):
         self.save_hyperparameters()
         self.model = UNET(in_channels=3, out_channels=1)
         self.criterion = nn.BCEWithLogitsLoss()
-        self.acc = torchmetrics.Accuracy()
-        self.dice = Dice()
-
+        self.dice_score = 0
     def forward(self, x):
         self.model(x)
 
@@ -46,40 +31,26 @@ class UNETModel(pl.LightningModule):
         mask = mask.unsqueeze(1)
         logits = self.model(image)
         loss = self.criterion(logits, mask)
-        acc = self.acc(logits, mask)
-        dice_score = self.dice(logits, mask)
-
         preds = (torch.sigmoid(logits) > 0.5).float()
-
+        dice_score = (2 * (preds * mask).sum()) / ((preds + mask).sum() + 1e-8)
+        torchvision.utils.save_image(image, "images.png")
         torchvision.utils.save_image(preds, "pred.png")
         torchvision.utils.save_image(mask, "mask.png")
+        wandb.log({"Images": wandb.Image("images.png")})
+        wandb.log({"Predictions": wandb.Image("pred.png")})
+        wandb.log({"Masks": wandb.Image("mask.png")})
 
         # Logging metrics
-        self.log("valid/acc", acc, prog_bar=True, on_step=True)
         self.log("valid/loss", loss, prog_bar=True, on_step=True)
         self.log("valid/dice_score", dice_score, prog_bar=True, on_step=True)
-        return {"images": image, "mask": mask, "preds": preds}
+        return { "mask": mask, "preds": preds}
 
     def validation_epoch_end(self, outputs):
-        images = torch.cat([x["image"] for x in outputs])
+
         preds = torch.cat([x["preds"] for x in outputs])
         mask = torch.cat([x["mask"] for x in outputs])
-
-        images = np.array(images.cpu())
-        mask_data = np.array(mask.cpu())
-        preds_data = np.array(preds.cpu())
-        self.wb_mask(images, preds_data, mask_data)
         torchvision.utils.save_image(preds, "epoch_preds.png")
         torchvision.utils.save_image(mask, "epoch_mask.png")
-
-    def wb_mask(self, bg_img, pred_mask, true_mask):
-        return wandb.Image(
-            bg_img,
-            masks={
-                "prediction": {"mask_data": pred_mask},
-                "ground truth": {"mask_data": true_mask},
-            },
-        )
 
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters(), lr=self.lr)
