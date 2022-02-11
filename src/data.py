@@ -72,7 +72,7 @@ class UNETDataModule(pl.LightningDataModule):
                 self.project_root + self.config.data.data_dir,
             )
             copy_cxr_merge_masks(
-                raw_image_dir=self.project_root + self.config.data.lung_mask_raw_dir,
+                raw_image_dir=self.project_root + "/" + self.config.data.lung_mask_raw_dir,
                 cxr_dir=self.cxr_dir,
                 mask_dir=self.mask_dir,
             )

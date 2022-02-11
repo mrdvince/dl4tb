@@ -22,11 +22,11 @@ class SamplesVisualisationLogger(pl.Callback):
         val_batch = next(iter(self.datamodule.val_dataloader()))
         val_images, val_labels = val_batch
         # get predictions
-        outputs = pl_module(val_images)
+        outputs = pl_module(val_images.cuda())
         preds = torch.argmax(outputs, dim=1)
         # predictions and labels
 
-        df = pd.DataFrame({"preds": preds.numpy(), "labels": val_labels.numpy()})
+        df = pd.DataFrame({"preds": preds.cpu().numpy(), "labels": val_labels.cpu().numpy()})
         # incorrect predictions
         wrong_df = df[df.preds != df.labels]
 
@@ -73,7 +73,7 @@ def main(cfg):
             logger=wandb_logger,
             callbacks=[check_point],
             default_root_dir=cfg.training.save_dir,
-            tpu_cores=cfg.training.cores if cfg.training.device == "tpu" else 0,
+            tpu_cores=cfg.training.cores if cfg.training.device == "tpu" else None,
             gpus=1 if cfg.training.device == "gpu" else 0,
             fast_dev_run=False,
             limit_train_batches=cfg.training.limit_train_batches,
@@ -86,6 +86,7 @@ def main(cfg):
 
     else:
         cls_trainer = pl.Trainer(
+          precision=16, amp_backend="native",
             logger=wandb_logger,
             callbacks=[
                 check_point,
@@ -93,7 +94,7 @@ def main(cfg):
                 SamplesVisualisationLogger(cls_data),
             ],
             default_root_dir=cfg.training.save_dir,
-            tpu_cores=cfg.training.cores if cfg.training.device == "tpu" else 0,
+            tpu_cores=cfg.training.cores if cfg.training.device == "tpu" else None,
             gpus=1 if cfg.training.device == "gpu" else 0,
             fast_dev_run=False,
             limit_train_batches=cfg.training.limit_train_batches,
