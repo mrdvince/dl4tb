@@ -42,16 +42,16 @@ class UNETDataset:
 
 
 class UNETDataModule(pl.LightningDataModule):
-    def __init__(self, config=None):
+    def __init__(self, config):
         super(UNETDataModule, self).__init__()
-        self.project_root = hydra.utils.get_original_cwd() + "/"  # os.getcwd() + "/"
-        dims = (256, 256)
+        self.project_root = hydra.utils.get_original_cwd() + "/"
+        self.config = config
+        dim = config.data.lung_mask_dim
         self.transforms = A.Compose(
             [
-                A.Resize(height=dims[0], width=dims[1], always_apply=True),
+                A.Resize(height=dim, width=dim, always_apply=True),
                 A.Rotate(limit=35, p=1.0),
                 A.HorizontalFlip(p=0.5),
-                A.VerticalFlip(p=0.1),
                 A.Normalize(
                     mean=[0.0, 0.0, 0.0],
                     std=[1.0, 1.0, 1.0],
@@ -60,20 +60,18 @@ class UNETDataModule(pl.LightningDataModule):
                 ToTensorV2(),
             ],
         )
-        self.cxr_dir = self.project_root + "data/proc_seg/cxr_pngs"
-        self.mask_dir = self.project_root + "data/proc_seg/mask_pngs"
+        self.cxr_dir = self.project_root + config.data.cxr_dir
+        self.mask_dir = self.project_root + config.data.mask_dir
+        self.bs = config.data.lm_batch_size
 
     def prepare_data(self):
-        if not os.path.exists(
-            self.project_root + "data/" + "pulmonary-chest-xray-abnormalities"
-        ):
+        if not os.path.exists(self.project_root + self.config.data.lung_mask_raw_dir):
             download(
-                "https://www.kaggle.com/kmader/pulmonary-chest-xray-abnormalities",
-                self.project_root + "data",
+                self.config.data.lung_mask_ds_url,
+                self.project_root + self.config.data.data_dir,
             )
             copy_cxr_merge_masks(
-                raw_image_dir=self.project_root
-                + "data/pulmonary-chest-xray-abnormalities/Montgomery/MontgomerySet/CXR_png",
+                raw_image_dir=self.project_root + self.config.data.lung_mask_raw_dir,
                 cxr_dir=self.cxr_dir,
                 mask_dir=self.mask_dir,
             )
@@ -90,7 +88,7 @@ class UNETDataModule(pl.LightningDataModule):
     def train_dataloader(self):
         return DataLoader(
             self.train_data,
-            batch_size=16,
+            batch_size=self.bs,
             shuffle=True,
             pin_memory=True,
             num_workers=os.cpu_count(),
@@ -98,7 +96,10 @@ class UNETDataModule(pl.LightningDataModule):
 
     def val_dataloader(self):
         return DataLoader(
-            self.val_data, batch_size=16, shuffle=False, num_workers=os.cpu_count()
+            self.val_data,
+            batch_size=self.bs,
+            pin_memory=True,
+            num_workers=os.cpu_count(),
         )
 
 
@@ -116,15 +117,15 @@ class ClassifierDataModule(pl.LightningDataModule):
         )
         self.config = config
         self.project_root = hydra.utils.get_original_cwd() + "/"
-        self.data_dir = self.project_root + self.config.processing.data_dir + "/"
+        self.data_dir = self.project_root + self.config.data.data_dir + "/"
 
     def prepare_data(self) -> None:
-        filename = self.config.processing.zip_file
-        path = Path(self.project_root + "data/")
+        filename = self.config.data.zip_file
+        path = Path(self.project_root + self.config.data.data_dir)
         path.mkdir(parents=True, exist_ok=True)
         if not path.joinpath(filename).exists():
             gdown.download(
-                self.config.processing.data_url,
+                self.config.data.data_url,
                 path.joinpath(filename).as_posix(),
                 quiet=False,
             )
@@ -155,23 +156,26 @@ class ClassifierDataModule(pl.LightningDataModule):
     def train_dataloader(self):
         return DataLoader(
             self.train_data,
-            batch_size=32,
+            batch_size=self.config.data.cl_batch_size,
             shuffle=True,
-            num_workers=6,
+            num_workers=os.cpu_count(),
             pin_memory=True,
         )
 
     def val_dataloader(self):
         return DataLoader(
             self.val_data,
-            batch_size=32,
-            shuffle=False,
-            num_workers=6,
+            batch_size=self.config.data.cl_batch_size,
+            num_workers=os.cpu_count(),
             pin_memory=True,
         )
 
     def test_dataloader(self):
-        return DataLoader(self.test_data, shuffle=False, batch_size=32, num_workers=6)
+        return DataLoader(
+            self.test_data,
+            batch_size=self.config.data.cl_batch_size,
+            num_workers=os.cpu_count(),
+        )
 
 
 if __name__ == "__main__":

@@ -5,7 +5,7 @@ from pathlib import Path
 import hydra
 import torch
 
-from model import Model
+from model import CLSModel
 
 logger = logging.getLogger(__name__)
 
@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 class ConvertModel:
     def __init__(self, ckpt_path):
         logger.info(f"Loading model from {ckpt_path}")
-        self.model = Model.load_from_checkpoint(ckpt_path)
+        self.model = CLSModel.load_from_checkpoint(ckpt_path)
 
     def to_onnx(self, save_path):
         dummy_input = torch.randn(1, 3, 224, 224)
