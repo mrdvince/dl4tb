@@ -146,10 +146,10 @@ class CLSModel(pl.LightningModule):
         # Logging metrics
         self.log("valid/loss", loss, prog_bar=True, on_step=True)
         self.log("valid/acc", valid_acc, prog_bar=True, on_step=True)
-        self.log("valid/precision_macro", precision_macro, prog_bar=True)
-        self.log("valid/recall_macro", recall_macro, prog_bar=True)
-        self.log("valid/precision_micro", precision_micro, prog_bar=True)
-        self.log("valid/recall_micro", recall_micro, prog_bar=True)
+        self.log("valid/precision_macro", precision_macro)
+        self.log("valid/recall_macro", recall_macro)
+        self.log("valid/precision_micro", precision_micro)
+        self.log("valid/recall_micro", recall_micro)
         self.log("valid/f1", f1, prog_bar=True)
         return {"labels": labels, "logits": outputs}
 
