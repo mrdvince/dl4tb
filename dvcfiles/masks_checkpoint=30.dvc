@@ -1,5 +1,0 @@
-wdir: ../saved/hydra/checkpoints
-outs:
-- md5: 8f323ddac842129d01b972f5bbf5daa3
-  size: 372579471
-  path: model_checkpoint_epoch=30.ckpt

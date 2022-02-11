@@ -42,7 +42,7 @@ class ConvertModel:
 def main(cfg):
     root_dir = hydra.utils.get_original_cwd()
     ckpt_path = os.path.join(root_dir, cfg.ckpt_path)
-    save_path = os.path.join(root_dir, cfg.processing.exports_dir)
+    save_path = os.path.join(root_dir, cfg.data.exports_dir)
 
     Path(save_path).mkdir(parents=True, exist_ok=True)
 
