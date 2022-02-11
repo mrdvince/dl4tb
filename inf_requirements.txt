@@ -1,4 +1,4 @@
-pytorch-lightning==1.5.9
+pytorch-lightning
 scikit-learn==1.0.2
 hydra-core==1.1.1
 hydra-colorlog==1.1.0
@@ -7,3 +7,4 @@ onnxruntime==1.10.0
 onnxruntime==1.10.0
 uvicorn==0.17.4
 python-multipart==0.0.5
+fastapi==0.73.0
