@@ -1,3 +1,4 @@
+import os
 import random
 
 import hydra
@@ -65,41 +66,42 @@ def main(cfg):
     wandb_logger = WandbLogger(
         project="dl4tb", save_dir=hydra.utils.get_original_cwd() + "/saved/"
     )
-
-    unet_trainer = pl.Trainer(
-        logger=wandb_logger,
-        callbacks=[check_point],
-        default_root_dir=cfg.training.save_dir,
-        tpu_cores=cfg.training.cores if cfg.training.device == "tpu" else 0,
-        gpus=1 if cfg.training.device == "gpu" else 0,
-        fast_dev_run=False,
-        limit_train_batches=cfg.training.limit_train_batches,
-        limit_val_batches=cfg.training.limit_val_batches,
-        max_epochs=cfg.training.max_epochs,
-        log_every_n_steps=1,
-        deterministic=cfg.training.deterministic,
-    )
-
-    cls_trainer = pl.Trainer(
-        logger=wandb_logger,
-        callbacks=[
-            check_point,
-            early_stopping_callback,
-            SamplesVisualisationLogger(cls_data),
-        ],
-        default_root_dir=cfg.training.save_dir,
-        tpu_cores=cfg.training.cores if cfg.training.device == "tpu" else 0,
-        gpus=1 if cfg.training.device == "gpu" else 0,
-        fast_dev_run=False,
-        limit_train_batches=cfg.training.limit_train_batches,
-        limit_val_batches=cfg.training.limit_val_batches,
-        max_epochs=cfg.training.max_epochs,
-        log_every_n_steps=cfg.training.log_every_n_steps,
-        deterministic=cfg.training.deterministic,
-    )
+    if cfg.training.device == "tpu" and cfg.training.cores > 1:
+        os.environ["WANDB_CONSOLE"] = "off"
     if cfg.training.model == "unet":
+        unet_trainer = pl.Trainer(
+            logger=wandb_logger,
+            callbacks=[check_point],
+            default_root_dir=cfg.training.save_dir,
+            tpu_cores=cfg.training.cores if cfg.training.device == "tpu" else 0,
+            gpus=1 if cfg.training.device == "gpu" else 0,
+            fast_dev_run=False,
+            limit_train_batches=cfg.training.limit_train_batches,
+            limit_val_batches=cfg.training.limit_val_batches,
+            max_epochs=cfg.training.max_epochs,
+            log_every_n_steps=1,
+            deterministic=cfg.training.deterministic,
+        )
         unet_trainer.fit(unet_model, unet_data)
+
     else:
+        cls_trainer = pl.Trainer(
+            logger=wandb_logger,
+            callbacks=[
+                check_point,
+                early_stopping_callback,
+                SamplesVisualisationLogger(cls_data),
+            ],
+            default_root_dir=cfg.training.save_dir,
+            tpu_cores=cfg.training.cores if cfg.training.device == "tpu" else 0,
+            gpus=1 if cfg.training.device == "gpu" else 0,
+            fast_dev_run=False,
+            limit_train_batches=cfg.training.limit_train_batches,
+            limit_val_batches=cfg.training.limit_val_batches,
+            max_epochs=cfg.training.max_epochs,
+            log_every_n_steps=cfg.training.log_every_n_steps,
+            deterministic=cfg.training.deterministic,
+        )
         cls_trainer.fit(cls_model, cls_data)
 
 

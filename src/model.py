@@ -12,7 +12,7 @@ from unet import UNET
 class Dice(torchmetrics.Metric):
     def __init__(self):
         super(Dice, self).__init__()
-        self.add_state("dice", default=0.0)
+        self.add_state("dice", default=torch.tensor(0))
 
     def update(self, preds, target, eps=1e-8):
         self.len_loader = len(preds)

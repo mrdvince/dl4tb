@@ -1,3 +1,4 @@
+import logging
 import os
 import shutil
 from glob import glob
@@ -16,7 +17,8 @@ def get_pandas_entry(id, path="data/train.csv"):
     return classes[label], label
 
 
-def copy_images_to_folder(data_dir):
+def copy_images_to_folder(project_root, data_dir):
+    project_root = Path(project_root)
     image_list = [path for path in Path(data_dir).rglob("*.png")]
     for idx, image in enumerate(image_list):
         image_name = image.name
@@ -24,14 +26,17 @@ def copy_images_to_folder(data_dir):
         image_path = image.as_posix()
         if label == 0:
             # copy image to negative folder
-            path = Path("data/proc_tb/negative")
-            path.mkdir(parents=True, exist_ok=True)
-            shutil.copy(image_path, "data/proc_tb/negative" + "/" + image_name)
+            negative_path = Path(project_root / "data/proc_tb/negative")
+            logging.info(f"Copying {image_path} to {negative_path}")
+            negative_path.mkdir(parents=True, exist_ok=True)
+            shutil.copy(image_path, negative_path / image_name)
         if label == 1:
             # copy image to positive folder
-            path = Path("data/proc_tb/positive")
-            path.mkdir(parents=True, exist_ok=True)
-            shutil.copy(image_path, "data/proc_tb/positive" + "/" + image_name)
+            positive_path = Path(project_root / "data/proc_tb/positive")
+            logging.info(positive_path)
+            positive_path.mkdir(parents=True, exist_ok=True)
+            shutil.copy(image_path, positive_path / image_name)
+    return "done"
 
 
 def verify_images_labels(name):
@@ -66,7 +71,7 @@ def copy_cxr_merge_masks(raw_image_dir, cxr_dir, mask_dir):
 
 
 if __name__ == "__main__":
-    copy_images_to_folder("data/tb_data/train")
+    copy_images_to_folder(Path.cwd(), "data/tb_data/train")
     download("https://www.kaggle.com/kmader/pulmonary-chest-xray-abnormalities", "data")
     copy_cxr_merge_masks(
         raw_image_dir="data/pulmonary-chest-xray-abnormalities/Montgomery/MontgomerySet/CXR_png",

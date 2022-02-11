@@ -1,3 +1,4 @@
+import logging
 import os
 import zipfile
 from glob import glob
@@ -132,7 +133,8 @@ class ClassifierDataModule(pl.LightningDataModule):
             # extract the zip file
             with zipfile.ZipFile(str(path / filename), "r") as zip_ref:
                 zip_ref.extractall(path / filename.replace(".zip", ""))
-            copy_images_to_folder("data/tb_data/train")
+            logging.info(f"Extracted {filename} to {path}")
+        _ = copy_images_to_folder(self.project_root, "data/tb_data/train")
 
     def setup(self, stage: Optional[str] = None) -> None:
         # load data
