@@ -1,4 +1,4 @@
-import logging
+import numpy as np
 import pytorch_lightning as pl
 import torch
 import torch.nn as nn
@@ -10,21 +10,16 @@ from unet import UNET
 
 
 class Dice(torchmetrics.Metric):
-    def __init__(self, len_loader, preds, mask, eps=1e-8):
+    def __init__(self):
         super(Dice, self).__init__()
-        self.len_loader = len_loader
-        self.preds = preds
-        self.mask = mask
-        self.epsilon = eps
-        self.add_state("dice_score", default=torch.tensor(0), dist_reduce_fx="sum")
+        self.add_state("dice", default=0.0)
 
-    def update(self):
-        self.dice_score += (2 * (self.preds * self.mask).sum()) / (
-            (self.preds + self.maask).sum() + self.epsilon
-        )
+    def update(self, preds, target, eps=1e-8):
+        self.len_loader = len(preds)
+        self.dice += 2.0 * (preds * target).sum() / (preds + target).sum() + eps
 
     def compute(self):
-        return self.dice_score / self.len_loader
+        return self.dice / self.len_loader
 
 
 class UNETModel(pl.LightningModule):
@@ -34,6 +29,8 @@ class UNETModel(pl.LightningModule):
         self.save_hyperparameters()
         self.model = UNET(in_channels=3, out_channels=1)
         self.criterion = nn.BCEWithLogitsLoss()
+        self.acc = torchmetrics.Accuracy()
+        self.dice = Dice()
 
     def forward(self, x):
         self.model(x)
@@ -49,30 +46,48 @@ class UNETModel(pl.LightningModule):
         mask = mask.unsqueeze(1)
         logits = self.model(image)
         loss = self.criterion(logits, mask)
-        preds = torch.sigmoid(logits)
-        pred = (preds > 0.5).float()
-        torchvision.utils.save_image(pred, "pred.png")
-        torchvision.utils.save_image(mask, "mask.png")
-        # # Metrics
-        self.dice_score = Dice(16, preds, mask)
-        # Logging metrics
+        acc = self.acc(logits, mask)
+        dice_score = self.dice(logits, mask)
 
+        preds = (torch.sigmoid(logits) > 0.5).float()
+
+        torchvision.utils.save_image(preds, "pred.png")
+        torchvision.utils.save_image(mask, "mask.png")
+
+        # Logging metrics
+        self.log("valid/acc", acc, prog_bar=True, on_step=True)
         self.log("valid/loss", loss, prog_bar=True, on_step=True)
-        # self.log("valid/dice_score", dice_score, prog_bar=True, on_step=True)
-        return {"mask": mask, "preds": preds}
+        self.log("valid/dice_score", dice_score, prog_bar=True, on_step=True)
+        return {"images": image, "mask": mask, "preds": preds}
 
     def validation_epoch_end(self, outputs):
+        images = torch.cat([x["image"] for x in outputs])
         preds = torch.cat([x["preds"] for x in outputs])
         mask = torch.cat([x["mask"] for x in outputs])
+
+        images = np.array(images.cpu())
+        mask_data = np.array(mask.cpu())
+        preds_data = np.array(preds.cpu())
+        self.wb_mask(images, preds_data, mask_data)
         torchvision.utils.save_image(preds, "epoch_preds.png")
+        torchvision.utils.save_image(mask, "epoch_mask.png")
+
+    def wb_mask(self, bg_img, pred_mask, true_mask):
+        return wandb.Image(
+            bg_img,
+            masks={
+                "prediction": {"mask_data": pred_mask},
+                "ground truth": {"mask_data": true_mask},
+            },
+        )
 
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters(), lr=self.lr)
 
 
-class Model(pl.LightningModule):
+class CLSModel(pl.LightningModule):
     def __init__(self, num_classes, lr=0.001):
-        super(Model, self).__init__()
+        super(CLSModel, self).__init__()
         self.lr = lr
         self.num_classes = num_classes
 
@@ -119,6 +134,7 @@ class Model(pl.LightningModule):
         outputs = self.forward(images)
         preds = torch.argmax(outputs, dim=1)
         loss = self.criterion(outputs, labels)
+
         # Metrics
         valid_acc = self.val_accuracy_metric(preds, labels)
         precision_macro = self.precision_macro_metric(preds, labels)
@@ -140,9 +156,7 @@ class Model(pl.LightningModule):
     def validation_epoch_end(self, outputs):
         labels = torch.cat([x["labels"] for x in outputs])
         logits = torch.cat([x["logits"] for x in outputs])
-        preds = torch.argmax(logits, 1)
 
-        # cm = confusion_matrix(labels.numpy(), preds.numpy())
         self.logger.experiment.log(
             {
                 "conf": wandb.plot.confusion_matrix(
