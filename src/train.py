@@ -26,7 +26,9 @@ class SamplesVisualisationLogger(pl.Callback):
         preds = torch.argmax(outputs, dim=1)
         # predictions and labels
 
-        df = pd.DataFrame({"preds": preds.cpu().numpy(), "labels": val_labels.cpu().numpy()})
+        df = pd.DataFrame(
+            {"preds": preds.cpu().numpy(), "labels": val_labels.cpu().numpy()}
+        )
         # incorrect predictions
         wrong_df = df[df.preds != df.labels]
 
@@ -86,7 +88,8 @@ def main(cfg):
 
     else:
         cls_trainer = pl.Trainer(
-          precision=16, amp_backend="native",
+            precision=16,
+            amp_backend="native",
             logger=wandb_logger,
             callbacks=[
                 check_point,

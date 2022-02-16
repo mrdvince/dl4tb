@@ -1,45 +1,15 @@
-import logging
 import os
-import zipfile
-from glob import glob
-from pathlib import Path
 from typing import Optional
 
 import albumentations as A
-import gdown
 import hydra
-import numpy as np
 import pytorch_lightning as pl
 from albumentations.pytorch.transforms import ToTensorV2
-from PIL import Image
 from torch.utils.data import DataLoader, random_split
 from torchvision import datasets, transforms
 
-from utils import copy_cxr_merge_masks, copy_images_to_folder, download
-
-
-class UNETDataset:
-    def __init__(self, cxr_dir, mask_dir, transform=None):
-        self.cxr_images = glob(os.path.join(cxr_dir, "*.png"))
-        self.mask_images = glob(os.path.join(mask_dir, "*.png"))
-        self.transform = transform
-
-    def __len__(self):
-        return len(self.cxr_images)
-
-    def __getitem__(self, idx):
-        cxr_png_path = Path(self.cxr_images[idx])
-        mask_png_path = Path(self.mask_images[idx])
-        img = np.array(Image.open(cxr_png_path).convert("RGB"))
-        mask = np.array(Image.open(mask_png_path).convert("L"), dtype=np.float32)
-        mask[mask == 255.0] = 1.0
-
-        if self.transform:
-            augs = self.transform(image=img, mask=mask)
-            img = augs["image"]
-            mask = augs["mask"]
-
-        return img, mask
+from datasets import UNETDataset
+from utils import get_data
 
 
 class UNETDataModule(pl.LightningDataModule):
@@ -67,15 +37,7 @@ class UNETDataModule(pl.LightningDataModule):
 
     def prepare_data(self):
         if not os.path.exists(self.project_root + self.config.data.lung_mask_raw_dir):
-            download(
-                self.config.data.lung_mask_ds_url,
-                self.project_root + self.config.data.data_dir,
-            )
-            copy_cxr_merge_masks(
-                raw_image_dir=self.project_root + "/" + self.config.data.lung_mask_raw_dir,
-                cxr_dir=self.cxr_dir,
-                mask_dir=self.mask_dir,
-            )
+            get_data()
 
     def setup(self, stage=None):
         dataset = UNETDataset(
@@ -121,20 +83,8 @@ class ClassifierDataModule(pl.LightningDataModule):
         self.data_dir = self.project_root + self.config.data.data_dir + "/"
 
     def prepare_data(self) -> None:
-        filename = self.config.data.zip_file
-        path = Path(self.project_root + self.config.data.data_dir)
-        path.mkdir(parents=True, exist_ok=True)
-        if not path.joinpath(filename).exists():
-            gdown.download(
-                self.config.data.data_url,
-                path.joinpath(filename).as_posix(),
-                quiet=False,
-            )
-            # extract the zip file
-            with zipfile.ZipFile(str(path / filename), "r") as zip_ref:
-                zip_ref.extractall(path / filename.replace(".zip", ""))
-            logging.info(f"Extracted {filename} to {path}")
-        _ = copy_images_to_folder(self.project_root, "data/tb_data/train")
+        if not os.path.exists(self.project_root + self.config.data.lung_mask_raw_dir):
+            get_data()
 
     def setup(self, stage: Optional[str] = None) -> None:
         # load data

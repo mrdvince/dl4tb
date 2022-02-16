@@ -70,11 +70,15 @@ def copy_cxr_merge_masks(raw_image_dir, cxr_dir, mask_dir):
         seg_img.save(mask_path / filename)
 
 
-if __name__ == "__main__":
-    copy_images_to_folder(Path.cwd(), "data/tb_data/train")
+def get_data():
     download("https://www.kaggle.com/kmader/pulmonary-chest-xray-abnormalities", "data")
     copy_cxr_merge_masks(
         raw_image_dir="data/pulmonary-chest-xray-abnormalities/Montgomery/MontgomerySet/CXR_png",
         cxr_dir="data/proc_seg/cxr_pngs",
         mask_dir="data/proc_seg/mask_pngs",
     )
+
+
+if __name__ == "__main__":
+    copy_images_to_folder(Path.cwd(), "data/tb_data/train")
+    get_data()

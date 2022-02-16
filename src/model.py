@@ -1,4 +1,3 @@
-import numpy as np
 import pytorch_lightning as pl
 import torch
 import torch.nn as nn
@@ -7,7 +6,7 @@ import torchvision
 import wandb
 
 from unet import UNET
-from PIL import Image
+
 
 class UNETModel(pl.LightningModule):
     def __init__(self, lr):
@@ -17,6 +16,7 @@ class UNETModel(pl.LightningModule):
         self.model = UNET(in_channels=3, out_channels=1)
         self.criterion = nn.BCEWithLogitsLoss()
         self.dice_score = 0
+
     def forward(self, x):
         self.model(x)
 
@@ -43,7 +43,7 @@ class UNETModel(pl.LightningModule):
         # Logging metrics
         self.log("valid/loss", loss, prog_bar=True, on_step=True)
         self.log("valid/dice_score", dice_score, prog_bar=True, on_step=True)
-        return { "mask": mask, "preds": preds}
+        return {"mask": mask, "preds": preds}
 
     def validation_epoch_end(self, outputs):
 
