@@ -8,8 +8,9 @@ import torch
 import wandb
 from pytorch_lightning.loggers import WandbLogger
 
-from data import ClassifierDataModule, UNETDataModule
+from datamodules import ClassifierDataModule, UNETDataModule
 from model import CLSModel, UNETModel
+from utils import load_hpu_library, set_env_params
 
 
 class SamplesVisualisationLogger(pl.Callback):
@@ -45,13 +46,52 @@ class SamplesVisualisationLogger(pl.Callback):
         )
 
 
+def permute_momentum(optimizer, to_filters_last, lazy_mode):
+    # Permute the momentum buffer before using for checkpoint
+    for group in optimizer.param_groups:
+        for p in group["params"]:
+            param_state = optimizer.state[p]
+            if "momentum_buffer" in param_state:
+                buf = param_state["momentum_buffer"]
+                if buf.ndim == 4:
+                    if to_filters_last:
+                        buf = buf.permute((2, 3, 1, 0))
+                    else:
+                        buf = buf.permute((3, 2, 0, 1))
+                    param_state["momentum_buffer"] = buf
+
+
+def permute_params(model, to_filters_last, lazy_mode):
+    with torch.no_grad():
+        for name, param in model.named_parameters():
+            if param.ndim == 4:
+                if to_filters_last:
+                    param.data = param.data.permute(
+                        (2, 3, 1, 0)
+                    )  # permute KCRS to RSCK
+                else:
+                    param.data = param.data.permute(
+                        (3, 2, 0, 1)
+                    )  # permute RSCK to KCRS
+    if lazy_mode:
+        import habana_frameworks.torch.core as htcore
+
+        htcore.mark_step()
+
+
 @hydra.main(config_path="configs", config_name="config")
 def main(cfg):
+    # before train setup
+    if cfg.training.device == "hpu":
+        set_env_params(cfg)
+        load_hpu_library()
+
     cls_data = ClassifierDataModule(config=cfg)
     cls_model = CLSModel(num_classes=cfg.model.num_classes)
 
     unet_data = UNETDataModule(config=cfg)
-    unet_model = UNETModel(lr=cfg.model.lr)
+    unet_model = UNETModel(cfg=cfg)
+    # permute_params(unet_model, True, False)
 
     check_point = pl.callbacks.ModelCheckpoint(
         dirpath="checkpoints",
@@ -72,6 +112,7 @@ def main(cfg):
         os.environ["WANDB_CONSOLE"] = "off"
     if cfg.training.model == "unet":
         unet_trainer = pl.Trainer(
+            hpus=1,  # cfg.training.cores if cfg.training.device == "hpu" else None,
             logger=wandb_logger,
             callbacks=[check_point],
             default_root_dir=cfg.training.save_dir,
@@ -88,6 +129,7 @@ def main(cfg):
 
     else:
         cls_trainer = pl.Trainer(
+            hpus=cfg.training.cores if cfg.training.device == "hpu" else None,
             precision=16,
             amp_backend="native",
             logger=wandb_logger,

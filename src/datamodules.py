@@ -37,7 +37,11 @@ class UNETDataModule(pl.LightningDataModule):
 
     def prepare_data(self):
         if not os.path.exists(self.project_root + self.config.data.lung_mask_raw_dir):
-            get_data()
+            get_data(
+                cxr_dir=self.cxr_dir,
+                mask_dir=self.mask_dir,
+                data_dir=self.project_root + "data/",
+            )
 
     def setup(self, stage=None):
         dataset = UNETDataset(
@@ -130,11 +134,16 @@ class ClassifierDataModule(pl.LightningDataModule):
         )
 
 
-if __name__ == "__main__":
-    train_loader = UNETDataModule()
+@hydra.main(config_path="configs", config_name="config")
+def main(cfg):
+    train_loader = UNETDataModule(cfg)
     train_loader.prepare_data()
     train_loader.setup()
     train_loader = train_loader.train_dataloader()
     data = next(iter(train_loader))
     loader_images, loader_masks = data
     print(loader_images.shape, loader_masks.shape)
+
+
+if __name__ == "__main__":
+    main()
