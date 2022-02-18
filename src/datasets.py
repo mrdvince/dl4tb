@@ -44,7 +44,6 @@ class CLSDataset:
 
     def __getitem__(self, idx) -> tuple:
         cxr_png_path = Path(self.cxr_images[idx])
-        print(cxr_png_path.name)
         img = Image.open(cxr_png_path).convert("RGB")
         if self.transforms:
             img = self.transforms(img)
