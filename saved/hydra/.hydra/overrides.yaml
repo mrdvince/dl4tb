@@ -1,2 +1,2 @@
-- training.max_epochs=50
-- training.model=unet
+- +ckpt_path="saved/hydra/checkpoints/model_checkpoint_epoch=49.ckpt"
+- +model.type=unet

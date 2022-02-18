@@ -1,6 +1,7 @@
 model:
   num_classes: 2
   lr: 0.001
+  type: unet
 data:
   data_url: https://drive.google.com/uc?id=1KdpV3M27kV-_QOQOrAentfzZ2tew8YS-&
   lung_mask_ds_url: https://www.kaggle.com/kmader/pulmonary-chest-xray-abnormalities
@@ -25,3 +26,4 @@ training:
   bucket_cap_mb: 125
   cores: 8
   model: unet
+ckpt_path: saved/hydra/checkpoints/model_checkpoint_epoch=49.ckpt
