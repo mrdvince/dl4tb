@@ -1,25 +1,30 @@
 import logging
+from multiprocessing import dummy
 import os
 from pathlib import Path
 
 import hydra
 import torch
 
-from model import CLSModel
+from model import CLSModel, UNETModel
 
 logger = logging.getLogger(__name__)
 
 
 class ConvertModel:
-    def __init__(self, ckpt_path):
+    def __init__(self,cfg, ckpt_path, model_type="cls"):
         logger.info(f"Loading model from {ckpt_path}")
-        self.model = CLSModel.load_from_checkpoint(ckpt_path)
+        if model_type == "unet":
+            self.model = UNETModel.load_from_checkpoint(ckpt_path)
+            self.dummy_input = torch.randn(1, 3, cfg.data.lung_mask_dim, cfg.data.lung_mask_dim)
+        else:
+            self.model = CLSModel.load_from_checkpoint(ckpt_path)
+            self.dummy_input = torch.randn(1, 3, 224, 224)
 
     def to_onnx(self, save_path):
-        dummy_input = torch.randn(1, 3, 224, 224)
         torch.onnx.export(
             self.model,
-            dummy_input,
+            self.dummy_input,
             save_path,
             export_params=True,
             verbose=True,
@@ -46,7 +51,7 @@ def main(cfg):
 
     Path(save_path).mkdir(parents=True, exist_ok=True)
 
-    cm = ConvertModel(ckpt_path=ckpt_path)
+    cm = ConvertModel(cfg, ckpt_path=ckpt_path, model_type=cfg.model.type)
     cm.to_onnx(os.path.join(save_path, "model_best_checkpoint.onnx"))
     cm.to_torchscript(os.path.join(save_path, "model_best_checkpoint.pt"))
 
