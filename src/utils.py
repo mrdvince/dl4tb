@@ -87,53 +87,6 @@ def get_data(
     )
 
 
-def set_env_params(cfg):
-    os.environ["MAX_WAIT_ATTEMPTS"] = "50"
-    os.environ["PT_HPU_ENABLE_SYNC_OUTPUT_HOST"] = "false"
-    if cfg.run_lazy_mode:
-        os.environ["PT_HPU_LAZY_MODE"] = "1"
-    if cfg.hpus > 1:
-        os.environ["PL_TORCH_DISTRIBUTED_BACKEND"] = "hccl"
-
-
-def load_hpu_library():
-    from habana_frameworks.torch.utils.library_loader import load_habana_module
-
-    load_habana_module()
-    import habana_frameworks.torch.core
-    import habana_frameworks.torch.core.hccl
-
-
-def mark_step(is_lazy_mode):
-    if is_lazy_mode:
-        import habana_frameworks.torch.core as htcore
-
-        htcore.mark_step()
-
-
-def permute_4d_5d_tensor(tensor, to_filters_last):
-    import habana_frameworks.torch.core as htcore
-    if htcore.is_enabled_weight_permute_pass() is True:
-        return tensor
-    if tensor.ndim == 4:
-        if to_filters_last:
-            tensor = tensor.permute((2, 3, 1, 0))
-        else:
-            tensor = tensor.permute((3, 2, 0, 1))  # permute RSCK to KCRS
-    elif tensor.ndim == 5:
-        if to_filters_last:
-            tensor = tensor.permute((2, 3, 4, 1, 0))
-        else:
-            tensor = tensor.permute((4, 3, 0, 1, 2))  # permute RSTCK to KCRST
-    return tensor
-
-def permute_params(model, to_filters_last, lazy_mode):
-    with torch.no_grad():
-        for name, param in model.named_parameters():
-            param.data = permute_4d_5d_tensor(param.data, to_filters_last)
-    mark_step(lazy_mode)
-
-
 if __name__ == "__main__":
     copy_images_to_folder(Path.cwd(), "data/tb_data/train")
     get_data()

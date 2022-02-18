@@ -1,14 +1,11 @@
-import imp
 import pytorch_lightning as pl
 import torch
 import torch.nn as nn
 import torchmetrics
 import torchvision
 import wandb
-from utils import mark_step, permute_params
 
 from unet import UNET
-from PIL import Image
 
 
 class UNETModel(pl.LightningModule):
@@ -23,27 +20,6 @@ class UNETModel(pl.LightningModule):
 
     def forward(self, image):
         return self.model(image)
-        # batch_modulo = image.shape[2] % self.config.data.lm_batch_size
-        # if batch_modulo != 0:
-        #     batch_pad = self.config.data.lm_batch_size - batch_modulo
-        #     image = nn.ConstantPad3d((0, 0, 0, 0, batch_pad, 0), 0)(image)
-        #     mark_step(self.config.run_lazy_mode)
-        # image = torch.transpose(image.squeeze(0), 0, 1)
-        # preds_shape = (image.shape[0], 1, *image.shape[2:])
-        # preds = torch.zeros(preds_shape, dtype=image.dtype, device=image.device)
-        # for start in range(
-        #     0,
-        #     image.shape[0] - self.config.data.lm_batch_size + 1,
-        #     self.config.data.lm_batch_size,
-        # ):
-        #     end = start + self.config.data.lm_batch_size
-        #     pred = self.model(image[start:end])
-        #     preds[start:end] = pred.data
-        #     mark_step(self.config.run_lazy_mode)
-        # if batch_modulo != 0:
-        #     preds = preds[batch_pad:]
-        #     mark_step(self.config.run_lazy_mode)
-        # return torch.transpose(preds, 0, 1).unsqueeze(0)
 
     def training_step(self, batch, batch_idx):
         image, mask = batch
@@ -51,53 +27,37 @@ class UNETModel(pl.LightningModule):
         loss = self.criterion(logits, mask.unsqueeze(1))
         return {"loss": loss}
 
-    # def validation_step(self, batch, batch_idx):
-    #     image, mask = batch
-    #     mask = mask.unsqueeze(1)
-    #     if self.config.training.device == "hpu":
-    #         image, mask = image.to(torch.device("hpu"), non_blocking=False), mask.to(
-    #             torch.device("hpu"), non_blocking=False
-    #         )
-    #     preds = self.forward(image)
-    #     loss = dice_score = (2 * (preds * mask).sum()) / (
-    #         (preds + mask).sum() + 1e-8
-    #     )  # self.loss(pred, mask)
-    #     # self.dice.update(pred, mask[:, 0])
-    #     mark_step(self.config.run_lazy_mode)
+    def validation_step(self, batch, batch_idx):
+        image, mask = batch
+        mask = mask.unsqueeze(1)
+        logits = self.model(image)
+        loss = self.criterion(logits, mask)
+        preds = (torch.sigmoid(logits) > 0.5).float()
+        dice_score = (2 * (preds * mask).sum()) / ((preds + mask).sum() + 1e-7)
+        self.dice_score += dice_score
+        torchvision.utils.save_image(image, "images.png")
+        torchvision.utils.save_image(preds, "pred.png")
+        torchvision.utils.save_image(mask, "mask.png")
 
-    #     self.log("valid/dice_score", dice_score, prog_bar=True, on_step=True)
-    #     return {"val_loss": loss, "preds": preds, "mask": mask}
-    #     # image, mask = batch
-    #     # mask = mask.unsqueeze(1)
-    #     # logits = self.model(image)
-    #     # loss = self.criterion(logits, mask)
-    #     # preds = (torch.sigmoid(logits) > 0.5).float()
-    #     # dice_score = (2 * (preds * mask).sum()) / ((preds + mask).sum() + 1e-8)
-    #     # torchvision.utils.save_image(image, "images.png")
-    #     # torchvision.utils.save_image(preds, "pred.png")
-    #     # torchvision.utils.save_image(mask, "mask.png")
-    #     # wandb.log({"Images": wandb.Image("images.png")})
-    #     # wandb.log({"Predictions": wandb.Image("pred.png")})
-    #     # wandb.log({"Masks": wandb.Image("mask.png")})
+        wandb.log({"Images": wandb.Image("images.png")})
+        wandb.log({"Predictions": wandb.Image("pred.png")})
+        wandb.log({"Masks": wandb.Image("mask.png")})
 
-    #     # Logging metrics
-    #     # self.log("valid/loss", loss, prog_bar=True, on_step=True)
-    #     # self.log("valid/dice_score", dice_score, prog_bar=True, on_step=True)
-    #     # return {"mask": mask, "preds": preds}
+        self.log("valid/loss", loss, prog_bar=True, on_step=True)
+        self.log("valid/dice_score", dice_score, prog_bar=True, on_step=True)
+        return {"mask": mask, "preds": preds}
 
-    # def validation_epoch_end(self, outputs):
+    def validation_epoch_end(self, outputs):
 
-    #     preds = torch.cat([x["preds"] for x in outputs])
-    #     mask = torch.cat([x["mask"] for x in outputs])
-    #     print(preds.shape, preds[0].shape)
-    #     # torchvision.utils.save_image(preds, "epoch_preds.png")
-    #     # torchvision.utils.save_image(mask, "epoch_mask.png")
+        preds = torch.cat([x["preds"] for x in outputs])
+        mask = torch.cat([x["mask"] for x in outputs])
+
+        torchvision.utils.save_image(preds, "epoch_preds.png")
+        torchvision.utils.save_image(mask, "epoch_mask.png")
 
     def configure_optimizers(self):
-        # if self.config.training.device == "hpu":
-        #     self.model = self.model.to(torch.device("hpu"))
-        #     permute_params(self.model, True, self.config.run_lazy_mode)
         return torch.optim.Adam(self.parameters(), lr=self.lr)
+
 
 class CLSModel(pl.LightningModule):
     def __init__(self, num_classes, lr=0.001):
