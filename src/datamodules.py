@@ -41,6 +41,7 @@ class UNETDataModule(pl.LightningDataModule):
                 cxr_dir=self.cxr_dir,
                 mask_dir=self.mask_dir,
                 data_dir=self.project_root + "data/",
+                raw_image_dir=self.project_root + self.config.data.lung_mask_raw_dir,
             )
 
     def setup(self, stage=None):
