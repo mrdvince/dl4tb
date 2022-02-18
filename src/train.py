@@ -72,6 +72,8 @@ def main(cfg):
         os.environ["WANDB_CONSOLE"] = "off"
     if cfg.training.model == "unet":
         unet_trainer = pl.Trainer(
+            precision=16,
+            amp_backend="native",
             logger=wandb_logger,
             callbacks=[
                 check_point,
